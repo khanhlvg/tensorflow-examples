@@ -24,12 +24,6 @@ class ImageSegmentator {
   private let tfLiteQueue: DispatchQueue
 
   /// TF Lite Model's input and output shapes.
-  private let batchSize: Int = 1
-  private let inputImageWidth: Int = 257
-  private let inputImageHeight: Int = 257
-  private let inputPixelSize: Int = 1
-  private let outputImageWidth: Int = 1
-  private let outputImageHeight: Int = 1
   private let outputClassCount: Int = 1
 
   /// Label list contains name of all classes the model can regconize.
@@ -75,7 +69,7 @@ class ImageSegmentator {
       else {
         print(
           "Failed to load the model file with name: "
-            + "\(Constants.modelFileName).\(Constants.modelFileExtension)")
+          + "\(Constants.modelFileName).\(Constants.modelFileExtension)")
         DispatchQueue.main.async {
           completion(
             .error(
@@ -90,7 +84,7 @@ class ImageSegmentator {
       guard let labelList = loadLabelList() else {
         print(
           "Failed to load the label list file with name: "
-            + "\(Constants.labelsFileName).\(Constants.labelsFileExtension)"
+          + "\(Constants.labelsFileName).\(Constants.labelsFileExtension)"
         )
         DispatchQueue.main.async {
           completion(
@@ -162,18 +156,18 @@ class ImageSegmentator {
       var visualizationTime: TimeInterval = 0
 
       do {
-        // Preprocessing: Resize the input UIImage to match with TF Lite model input shape.
-        var now = Date()
-        preprocessingTime = now.timeIntervalSince(startTime)
+        // Preprocessing: Convert the input UIImage to MLImage.
         startTime = Date()
         guard let mlImage = MLImage(image: image) else { return }
-        segmentationResult = try self.segmenter.segment(gmlImage: mlImage)
+        var now = Date()
+        preprocessingTime = now.timeIntervalSince(startTime)
 
-
-        // Calculate inference time.
-        now = Date()
-        inferenceTime = now.timeIntervalSince(startTime)
         startTime = Date()
+        // Segmentation
+        segmentationResult = try self.segmenter.segment(gmlImage: mlImage)
+        now = Date()
+        // Calculate segmentation time.
+        inferenceTime = now.timeIntervalSince(startTime)
       } catch let error {
         print("Failed to invoke the interpreter with error: \(error.localizedDescription)")
         DispatchQueue.main.async {
@@ -182,23 +176,22 @@ class ImageSegmentator {
         return
       }
 
-      // Postprocessing: Find the class with highest confidence for each pixel.
+      /// Postprocessing: Convert `SegmentationResult` to the segmentation mask and color for each pixel.
       guard let parsedOutput = self.parseOutput(segmentationResult: segmentationResult) else { return }
-//
-//       Calculate postprocessing time.
-//       Note: You may find postprocessing very slow if you run the sample app with Debug build.
-//       You will see significant speed up if you rerun using Release build, or change
-//       Optimization Level in the project's Build Settings to the same value with Release build.
+
+      // Calculate postprocessing time.
+      // Note: You may find postprocessing very slow if you run the sample app with Debug build.
+      // You will see significant speed up if you rerun using Release build, or change
+      // Optimization Level in the project's Build Settings to the same value with Release build.
       var now = Date()
       postprocessingTime = now.timeIntervalSince(startTime)
       startTime = Date()
-//
-//      // Visualize result into images.
+      // Visualize result into images.
       guard
         let resultImage = ImageSegmentator.imageFromSRGBColorArray(
           pixels: parsedOutput.segmentationImagePixels,
-          width: self.inputImageWidth,
-          height: self.inputImageHeight
+          width: Int(parsedOutput.outputImageSize.width),
+          height: Int(parsedOutput.outputImageSize.height)
         ),
         let overlayImage = image.overlayWithImage(image: resultImage, alpha: 0.5)
       else {
@@ -216,10 +209,10 @@ class ImageSegmentator {
       // Calculate visualization time.
       now = Date()
       visualizationTime = now.timeIntervalSince(startTime)
-//
-//      // Create a representative object that contains the segmentation result.
+
+      // Create a representative object that contains the segmentation result.
       let result = ImageSegmentationResult(
-        array: parsedOutput.segmentationMap,
+        array: parsedOutput.segmentationMaps,
         resultImage: resultImage,
         overlayImage: overlayImage,
         preprocessingTime: preprocessingTime,
@@ -236,7 +229,11 @@ class ImageSegmentator {
     }
   }
 
-  private func parseOutput(segmentationResult: SegmentationResult) -> (segmentationMap: [[UInt8]], segmentationImagePixels: [UInt32], classList: Set<UInt8>)? {
+  // MARK: - Image Segmentation Parse
+
+  /// Run segmentation map and color  for each pixel, if can't get `categoryMask` -> return nil.
+  /// - Parameter segmentationResult: The result received from image secmentation process
+  private func parseOutput(segmentationResult: SegmentationResult) -> ImageSegmentationParseData? {
     guard let segmentation = segmentationResult.segmentations.first,
           let categoryMask = segmentation.categoryMask else { return nil }
     let mask = categoryMask.mask
@@ -248,7 +245,11 @@ class ImageSegmentator {
     let twoDimArray = [[UInt8]](repeating: [UInt8](repeating: 0, count: categoryMask.width), count: categoryMask.height)
     var iter = results.makeIterator()
     let newResults: [[UInt8]] = twoDimArray.map { $0.compactMap { _ in iter.next() } }
-    return (newResults, segmentationImagePixels, classList)
+    return ImageSegmentationParseData(
+      segmentationMaps: newResults,
+      segmentationImagePixels: segmentationImagePixels,
+      classList: classList,
+      outputImageSize: CGSize(width: categoryMask.width, height: categoryMask.height))
   }
 
   // MARK: - Utils
@@ -272,18 +273,13 @@ class ImageSegmentator {
         bytesPerRow: MemoryLayout<UInt32>.size * width,
         space: CGColorSpace(name: CGColorSpace.sRGB)!,
         bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue
-          + CGImageAlphaInfo.premultipliedFirst.rawValue
+        + CGImageAlphaInfo.premultipliedFirst.rawValue
       )!
       return ctx.makeImage()!
     }
 
     // Convert the CGImage instance to an UIImage instance.
     return UIImage(cgImage: cgImage)
-  }
-
-  /// Convert 3-dimension index (image_width x image_height x class_count) to 1-dimension index
-  private func coordinateToIndex(x: Int, y: Int, z: Int) -> Int {
-    return x * outputImageHeight * outputClassCount + y * outputClassCount + z
   }
 
   /// Look up the colors used to visualize the classes found in the image.
@@ -309,9 +305,6 @@ class ImageSegmentator {
 
 // MARK: - Types
 
-/// Callback type for image segmentation request.
-typealias ImageSegmentationCompletion = (SegmentationResult?, Error?) -> Void
-
 /// Representation of the image segmentation result.
 struct ImageSegmentationResult {
   /// Segmentation result as an array. Each value represents the most likely class the pixel
@@ -333,6 +326,18 @@ struct ImageSegmentationResult {
   /// Dictionary of classes found in the image, and the color used to represent the class in
   /// segmentation result visualization.
   let colorLegend: [String: UIColor]
+}
+
+/// ParseData of the image segmentation result.
+struct ImageSegmentationParseData {
+  // Masks of secmentation result
+  let segmentationMaps: [[UInt8]]
+  // Legend Color for each pixel
+  let segmentationImagePixels: [UInt32]
+  // All class indexs of segmentation result
+  let classList: Set<UInt8>
+  // Model output image size
+  let outputImageSize: CGSize
 }
 
 /// Convenient enum to return result with a callback
