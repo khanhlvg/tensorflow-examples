@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import TensorFlowLite
+import TensorFlowLiteTaskVision
 import UIKit
 
 class ImageSegmentator {
 
   /// TensorFlow Lite `Interpreter` object for performing inference on a given model.
-  private var interpreter: Interpreter
+  private var segmenter: ImageSegmenter
 
   /// Dedicated DispatchQueue for TF Lite operations.
   private let tfLiteQueue: DispatchQueue
 
   /// TF Lite Model's input and output shapes.
-  private let batchSize: Int
-  private let inputImageWidth: Int
-  private let inputImageHeight: Int
-  private let inputPixelSize: Int
-  private let outputImageWidth: Int
-  private let outputImageHeight: Int
-  private let outputClassCount: Int
+  private let batchSize: Int = 1
+  private let inputImageWidth: Int = 257
+  private let inputImageHeight: Int = 257
+  private let inputPixelSize: Int = 1
+  private let outputImageWidth: Int = 1
+  private let outputImageHeight: Int = 1
+  private let outputClassCount: Int = 1
 
   /// Label list contains name of all classes the model can regconize.
   private let labelList: [String]
@@ -103,38 +103,17 @@ class ImageSegmentator {
       }
 
       // Specify the options for the TF Lite `Interpreter`.
-      var options: Interpreter.Options?
-      var delegates: [Delegate]?
-#if targetEnvironment(simulator)
-      // Use CPU for inference as MetalDelegate does not support iOS simulator.
-      options = Interpreter.Options()
-      options?.threadCount = 2
-#else
-      // Use GPU on real device for inference as this model is fully supported.
-      delegates = [MetalDelegate()]
-#endif
+      let options = ImageSegmenterOptions(modelPath: modelPath)
+      // Configure any additional options:
+      // options.outputType = OutputType.confidenceMasks
 
       do {
-        // Create the `Interpreter`.
-        let interpreter = try Interpreter(
-          modelPath: modelPath,
-          options: options,
-          delegates: delegates
-        )
-
-        // Allocate memory for the model's input `Tensor`s.
-        try interpreter.allocateTensors()
-
-        // Read TF Lite model input and output shapes.
-        let inputShape = try interpreter.input(at: 0).shape
-        let outputShape = try interpreter.output(at: 0).shape
+        let segmenter = try ImageSegmenter.imageSegmenter(options: options)
 
         // Create an ImageSegmentator instance and return.
         let segmentator = ImageSegmentator(
           tfLiteQueue: tfLiteQueue,
-          interpreter: interpreter,
-          inputShape: inputShape,
-          outputShape: outputShape,
+          segmenter: segmenter,
           labelList: labelList
         )
         DispatchQueue.main.async {
@@ -153,24 +132,11 @@ class ImageSegmentator {
   /// Initialize Image Segmentator instance.
   fileprivate init(
     tfLiteQueue: DispatchQueue,
-    interpreter: Interpreter,
-    inputShape: Tensor.Shape,
-    outputShape: Tensor.Shape,
+    segmenter: ImageSegmenter,
     labelList: [String]
   ) {
     // Store TF Lite intepreter
-    self.interpreter = interpreter
-
-    // Read input shape from model.
-    self.batchSize = inputShape.dimensions[0]
-    self.inputImageWidth = inputShape.dimensions[1]
-    self.inputImageHeight = inputShape.dimensions[2]
-    self.inputPixelSize = inputShape.dimensions[3]
-
-    // Read output shape from model.
-    self.outputImageWidth = outputShape.dimensions[1]
-    self.outputImageHeight = outputShape.dimensions[2]
-    self.outputClassCount = outputShape.dimensions[3]
+    self.segmenter = segmenter
 
     // Store label list
     self.labelList = labelList
@@ -185,10 +151,10 @@ class ImageSegmentator {
   /// - Parameter image: the target image.
   /// - Parameter completion: the callback to receive segmentation result.
   func runSegmentation(
-    _ image: UIImage, completion: @escaping ((Result<SegmentationResult>) -> Void)
+    _ image: UIImage, completion: @escaping ((Result<ImageSegmentationResult>) -> Void)
   ) {
     tfLiteQueue.async {
-      let outputTensor: Tensor
+      let segmentationResult: SegmentationResult
       var startTime: Date = Date()
       var preprocessingTime: TimeInterval = 0
       var inferenceTime: TimeInterval = 0
@@ -197,34 +163,12 @@ class ImageSegmentator {
 
       do {
         // Preprocessing: Resize the input UIImage to match with TF Lite model input shape.
-        guard
-          let rgbData = image.scaledData(
-            with: CGSize(width: self.inputImageWidth, height: self.inputImageHeight),
-            byteCount: self.inputImageWidth * self.inputImageHeight * self.inputPixelSize
-              * self.batchSize,
-            isQuantized: false
-          )
-        else {
-          DispatchQueue.main.async {
-            completion(.error(SegmentationError.invalidImage))
-          }
-          print("Failed to convert the image buffer to RGB data.")
-          return
-        }
-
-        // Calculate preprocessing time.
         var now = Date()
         preprocessingTime = now.timeIntervalSince(startTime)
         startTime = Date()
+        guard let mlImage = MLImage(image: image) else { return }
+        segmentationResult = try self.segmenter.segment(gmlImage: mlImage)
 
-        // Copy the RGB data to the input `Tensor`.
-        try self.interpreter.copy(rgbData, toInputAt: 0)
-
-        // Run inference by invoking the `Interpreter`.
-        try self.interpreter.invoke()
-
-        // Get the output `Tensor` to process the inference results.
-        outputTensor = try self.interpreter.output(at: 0)
 
         // Calculate inference time.
         now = Date()
@@ -239,17 +183,17 @@ class ImageSegmentator {
       }
 
       // Postprocessing: Find the class with highest confidence for each pixel.
-      let parsedOutput = self.parseOutputTensor(outputTensor: outputTensor)
-
-      // Calculate postprocessing time.
-      // Note: You may find postprocessing very slow if you run the sample app with Debug build.
-      // You will see significant speed up if you rerun using Release build, or change
-      // Optimization Level in the project's Build Settings to the same value with Release build.
+      guard let parsedOutput = self.parseOutput(segmentationResult: segmentationResult) else { return }
+//
+//       Calculate postprocessing time.
+//       Note: You may find postprocessing very slow if you run the sample app with Debug build.
+//       You will see significant speed up if you rerun using Release build, or change
+//       Optimization Level in the project's Build Settings to the same value with Release build.
       var now = Date()
       postprocessingTime = now.timeIntervalSince(startTime)
       startTime = Date()
-
-      // Visualize result into images.
+//
+//      // Visualize result into images.
       guard
         let resultImage = ImageSegmentator.imageFromSRGBColorArray(
           pixels: parsedOutput.segmentationImagePixels,
@@ -272,9 +216,9 @@ class ImageSegmentator {
       // Calculate visualization time.
       now = Date()
       visualizationTime = now.timeIntervalSince(startTime)
-
-      // Create a representative object that contains the segmentation result.
-      let result = SegmentationResult(
+//
+//      // Create a representative object that contains the segmentation result.
+      let result = ImageSegmentationResult(
         array: parsedOutput.segmentationMap,
         resultImage: resultImage,
         overlayImage: overlayImage,
@@ -292,53 +236,19 @@ class ImageSegmentator {
     }
   }
 
-  /// Post-processing: Convert TensorFlow Lite output tensor to segmentation map and its color
-  /// representation.
-  private func parseOutputTensor(outputTensor: Tensor)
-    -> (segmentationMap: [[Int]], segmentationImagePixels: [UInt32], classList: Set<Int>)
-  {
-    // Initialize the varibles to store postprocessing result.
-    var segmentationMap = [[Int]](
-      repeating: [Int](repeating: 0, count: self.outputImageHeight),
-      count: self.outputImageWidth
-    )
-    var segmentationImagePixels = [UInt32](
-      repeating: 0, count: self.outputImageHeight * self.outputImageWidth)
-    var classList: Set<Int> = []
-
-    // Convert TF Lite model output to a native Float32 array for parsing.
-    let logits = outputTensor.data.toArray(type: Float32.self)
-
-    var valMax: Float32 = 0.0
-    var val: Float32 = 0.0
-    var indexMax = 0
-
-    // Looping through the output array
-    for x in 0..<self.outputImageWidth {
-      for y in 0..<self.outputImageHeight {
-        // For each pixel, find the class that have the highest probability.
-        valMax = logits[self.coordinateToIndex(x: x, y: y, z: 0)]
-        indexMax = 0
-        for z in 1..<self.outputClassCount {
-          val = logits[self.coordinateToIndex(x: x, y: y, z: z)]
-          if logits[self.coordinateToIndex(x: x, y: y, z: z)] > valMax {
-            indexMax = z
-            valMax = val
-          }
-        }
-
-        // Store the most likely class to the output.
-        segmentationMap[x][y] = indexMax
-        classList.insert(indexMax)
-
-        // Lookup the color legend for the class.
-        // Using modulo to reuse colors on segmentation model with large number of classes.
-        let legendColor = Constants.legendColorList[indexMax % Constants.legendColorList.count]
-        segmentationImagePixels[x * self.outputImageHeight + y] = legendColor
-      }
-    }
-
-    return (segmentationMap, segmentationImagePixels, classList)
+  private func parseOutput(segmentationResult: SegmentationResult) -> (segmentationMap: [[UInt8]], segmentationImagePixels: [UInt32], classList: Set<UInt8>)? {
+    guard let segmentation = segmentationResult.segmentations.first,
+          let categoryMask = segmentation.categoryMask else { return nil }
+    let mask = categoryMask.mask
+    let results = [UInt8](UnsafeMutableBufferPointer(start: mask, count: categoryMask.width * categoryMask.height))
+    let classList = Set(results)
+    let segmentationImagePixels: [UInt32] = results.map({
+      UInt32(Constants.legendColorList[Int($0) % Constants.legendColorList.count])
+    })
+    let twoDimArray = [[UInt8]](repeating: [UInt8](repeating: 0, count: categoryMask.width), count: categoryMask.height)
+    var iter = results.makeIterator()
+    let newResults: [[UInt8]] = twoDimArray.map { $0.compactMap { _ in iter.next() } }
+    return (newResults, segmentationImagePixels, classList)
   }
 
   // MARK: - Utils
@@ -377,20 +287,20 @@ class ImageSegmentator {
   }
 
   /// Look up the colors used to visualize the classes found in the image.
-  private func classListToColorLegend(classList: Set<Int>) -> [String: UIColor] {
+  private func classListToColorLegend(classList: Set<UInt8>) -> [String: UIColor] {
     var colorLegend: [String: UIColor] = [:]
     let sortedClassIndexList = classList.sorted()
     sortedClassIndexList.forEach { classIndex in
       // Look up the color legend for the class.
       // Using modulo to reuse colors on segmentation model with large number of classes.
-      let color = Constants.legendColorList[classIndex % Constants.legendColorList.count]
+      let color = Constants.legendColorList[Int(classIndex) % Constants.legendColorList.count]
 
       // Convert the color from sRGB UInt32 representation to UIColor.
       let a = CGFloat((color & 0xFF00_0000) >> 24) / 255.0
       let r = CGFloat((color & 0x00FF_0000) >> 16) / 255.0
       let g = CGFloat((color & 0x0000_FF00) >> 8) / 255.0
       let b = CGFloat(color & 0x0000_00FF) / 255.0
-      colorLegend[labelList[classIndex]] = UIColor(red: r, green: g, blue: b, alpha: a)
+      colorLegend[labelList[Int(classIndex)]] = UIColor(red: r, green: g, blue: b, alpha: a)
     }
     return colorLegend
   }
@@ -403,10 +313,10 @@ class ImageSegmentator {
 typealias ImageSegmentationCompletion = (SegmentationResult?, Error?) -> Void
 
 /// Representation of the image segmentation result.
-struct SegmentationResult {
+struct ImageSegmentationResult {
   /// Segmentation result as an array. Each value represents the most likely class the pixel
   /// belongs to.
-  let array: [[Int]]
+  let array: [[UInt8]]
 
   /// Visualization of the segmentation result.
   let resultImage: UIImage
