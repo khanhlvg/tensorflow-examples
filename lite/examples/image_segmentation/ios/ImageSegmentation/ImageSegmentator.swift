@@ -23,9 +23,6 @@ class ImageSegmentator {
   /// Dedicated DispatchQueue for TF Lite operations.
   private let tfLiteQueue: DispatchQueue
 
-  /// TF Lite Model's input and output shapes.
-  private let outputClassCount: Int = 1
-
   /// Label list contains name of all classes the model can regconize.
   private let labelList: [String]
 
