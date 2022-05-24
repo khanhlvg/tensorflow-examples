@@ -34,7 +34,6 @@ class InferenceViewController: UIViewController {
 
   private enum InferenceInfo: Int, CaseIterable {
     case Resolution
-    case Crop
     case InferenceTime
 
     func displayString() -> String {
@@ -44,8 +43,6 @@ class InferenceViewController: UIViewController {
       switch self {
       case .Resolution:
         toReturn = "Resolution"
-      case .Crop:
-        toReturn = "Crop"
       case .InferenceTime:
         toReturn = "Inference Time"
 
@@ -261,8 +258,6 @@ extension InferenceViewController: UITableViewDelegate, UITableViewDataSource {
     switch inferenceInfo {
     case .Resolution:
       info = "\(Int(resolution.width))x\(Int(resolution.height))"
-    case .Crop:
-      info = "\(wantedInputWidth)x\(wantedInputHeight)"
     case .InferenceTime:
       guard let finalResults = inferenceResult else {
         info = "0ms"
