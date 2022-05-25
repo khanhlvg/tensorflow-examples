@@ -199,10 +199,6 @@ class ImageSegmentator {
         return
       }
 
-      // Construct a dictionary of classes found in the image and each class's color used in
-      // visualization.
-      let colorLegend = self.classListToColorLegend(classList: parsedOutput.classList)
-
       // Calculate visualization time.
       now = Date()
       visualizationTime = now.timeIntervalSince(startTime)
@@ -216,7 +212,7 @@ class ImageSegmentator {
         inferenceTime: inferenceTime,
         postProcessingTime: postprocessingTime,
         visualizationTime: visualizationTime,
-        colorLegend: colorLegend
+        colorLegend: parsedOutput.classColors
       )
 
       // Return the segmentation result.
@@ -235,17 +231,26 @@ class ImageSegmentator {
           let categoryMask = segmentation.categoryMask else { return nil }
     let mask = categoryMask.mask
     let results = [UInt8](UnsafeMutableBufferPointer(start: mask, count: categoryMask.width * categoryMask.height))
-    let classList = Set(results)
-    let segmentationImagePixels: [UInt32] = results.map({
-      UInt32(Constants.legendColorList[Int($0) % Constants.legendColorList.count])
+    let classList = Array(Set(results))
+    let classLables = classList.map({ labelList[Int($0)] })
+    let classColors: [UIColor] = classList.map({
+      let colorLabel = segmentation.coloredLabels[Int($0)]
+      return UIColor(red: CGFloat(colorLabel.r)/255.0,
+              green: CGFloat(colorLabel.g)/255.0,
+              blue: CGFloat(colorLabel.b)/255.0,
+              alpha: 0.5)
     })
+    // Construct a dictionary of classes found in the image and each class's color used in
+    // visualization.
+    let classLabelColors = [String: UIColor](uniqueKeysWithValues: zip(classLables, classColors))
+    let segmentationImagePixels: [UInt32] = results.map({UInt32(Constants.legendColorList[Int($0)])})
     let twoDimArray = [[UInt8]](repeating: [UInt8](repeating: 0, count: categoryMask.width), count: categoryMask.height)
     var iter = results.makeIterator()
     let newResults: [[UInt8]] = twoDimArray.map { $0.compactMap { _ in iter.next() } }
     return ImageSegmentationParseData(
       segmentationMaps: newResults,
       segmentationImagePixels: segmentationImagePixels,
-      classList: classList,
+      classColors: classLabelColors,
       outputImageSize: CGSize(width: categoryMask.width, height: categoryMask.height))
   }
 
@@ -332,7 +337,7 @@ struct ImageSegmentationParseData {
   // Legend Color for each pixel
   let segmentationImagePixels: [UInt32]
   // All class indexs of segmentation result
-  let classList: Set<UInt8>
+  let classColors: [String: UIColor]
   // Model output image size
   let outputImageSize: CGSize
 }
