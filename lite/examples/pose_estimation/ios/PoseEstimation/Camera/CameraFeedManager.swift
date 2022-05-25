@@ -34,9 +34,9 @@ final class CameraFeedManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
   /// Delegate to receive the frames captured by the device's camera.
   var delegate: CameraFeedManagerDelegate?
 
-  override init() {
+  init(cameraPosition: AVCaptureDevice.Position) {
     super.init()
-    configureSession()
+    self.configureSession(cameraPosition: cameraPosition)
   }
 
   /// Start capturing frames from the camera.
@@ -52,17 +52,17 @@ final class CameraFeedManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
   let captureSession = AVCaptureSession()
 
   /// Initialize the capture session.
-  private func configureSession() {
+  private func configureSession(cameraPosition: AVCaptureDevice.Position) {
     captureSession.sessionPreset = AVCaptureSession.Preset.photo
 
     guard
-      let backCamera = AVCaptureDevice.default(
-        .builtInWideAngleCamera, for: .video, position: .back)
+      let camera = AVCaptureDevice.default(
+        .builtInWideAngleCamera, for: .video, position: cameraPosition)
     else {
       return
     }
     do {
-      let input = try AVCaptureDeviceInput(device: backCamera)
+      let input = try AVCaptureDeviceInput(device: camera)
       captureSession.addInput(input)
     } catch {
       return
@@ -94,8 +94,8 @@ final class CameraFeedManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
     guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
       return
     }
-    CVPixelBufferLockBaseAddress(pixelBuffer, CVPixelBufferLockFlags.readOnly)
+//    CVPixelBufferLockBaseAddress(pixelBuffer, CVPixelBufferLockFlags.readOnly)
     delegate?.cameraFeedManager(self, didOutput: pixelBuffer)
-    CVPixelBufferUnlockBaseAddress(pixelBuffer, CVPixelBufferLockFlags.readOnly)
+//    CVPixelBufferUnlockBase`Address(pixelBuffer, CVPixelBufferLockFlags.readOnly)
   }
 }

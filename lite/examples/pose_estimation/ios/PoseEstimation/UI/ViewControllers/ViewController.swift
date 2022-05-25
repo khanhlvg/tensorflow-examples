@@ -44,6 +44,7 @@ final class ViewController: UIViewController {
   // Handles all data preprocessing and makes calls to run inference.
   private var poseEstimator: PoseEstimator?
   private var cameraFeedManager: CameraFeedManager!
+  private let cameraPosition: AVCaptureDevice.Position = .front
 
   // Serial queue to control all tasks related to the TFLite model.
   let queue = DispatchQueue(label: "serial_queue")
@@ -76,7 +77,7 @@ final class ViewController: UIViewController {
   }
 
   private func configCameraCapture() {
-    cameraFeedManager = CameraFeedManager()
+    cameraFeedManager = CameraFeedManager(cameraPosition: cameraPosition)
     cameraFeedManager.startRunning()
     cameraFeedManager.delegate = self
   }
@@ -153,6 +154,23 @@ final class ViewController: UIViewController {
       }
     }
   }
+  // Get mirror image
+  private func rotate(_ pixelBuffer: CVPixelBuffer) -> CVPixelBuffer? {
+    var newPixelBuffer: CVPixelBuffer?
+    let error = CVPixelBufferCreate(kCFAllocatorDefault,
+                                    CVPixelBufferGetWidth(pixelBuffer),
+                                    CVPixelBufferGetHeight(pixelBuffer),
+                                    CVPixelBufferGetPixelFormatType(pixelBuffer),
+                                    nil,
+                                    &newPixelBuffer)
+    guard error == kCVReturnSuccess else {
+      return nil
+    }
+    let ciImage = CIImage(cvPixelBuffer: pixelBuffer).oriented(.upMirrored)
+    let context = CIContext(options: nil)
+    context.render(ciImage, to: newPixelBuffer!)
+    return newPixelBuffer
+  }
 
   @IBAction private func threadStepperValueChanged(_ sender: UIStepper) {
     threadCount = Int(sender.value)
@@ -182,7 +200,6 @@ extension ViewController: CameraFeedManagerDelegate {
   private func runModel(_ pixelBuffer: CVPixelBuffer) {
     // Guard to make sure that there's only 1 frame process at each moment.
     guard !isRunning else { return }
-
     // Guard to make sure that the pose estimator is already initialized.
     guard let estimator = poseEstimator else { return }
 
@@ -190,11 +207,17 @@ extension ViewController: CameraFeedManagerDelegate {
     queue.async {
       self.isRunning = true
       defer { self.isRunning = false }
-
+      var newPixelBuffer: CVPixelBuffer!
+      // Get mirror image if use front camera
+      if self.cameraPosition == .front {
+         newPixelBuffer = self.rotate(pixelBuffer)
+      } else {
+        newPixelBuffer = pixelBuffer
+      }
       // Run pose estimation
       do {
         let (result, times) = try estimator.estimateSinglePose(
-            on: pixelBuffer)
+            on: newPixelBuffer)
 
         // Return to main thread to show detection results on the app UI.
         DispatchQueue.main.async {
@@ -203,7 +226,7 @@ extension ViewController: CameraFeedManagerDelegate {
           self.scoreLabel.text = String(format: "%.3f", result.score)
 
           // Allowed to set image and overlay
-          let image = UIImage(ciImage: CIImage(cvPixelBuffer: pixelBuffer))
+          let image = UIImage(ciImage: CIImage(cvPixelBuffer: newPixelBuffer))
 
           // If score is too low, clear result remaining in the overlayView.
           if result.score < self.minimumScore {
