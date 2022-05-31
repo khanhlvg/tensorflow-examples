@@ -23,9 +23,6 @@ class ImageSegmentator {
   /// Dedicated DispatchQueue for TF Lite operations.
   private let tfLiteQueue: DispatchQueue
 
-  /// Label list contains name of all classes the model can regconize.
-  private let labelList: [String]
-
   // MARK: - Initialization
 
   /// Load label list from file.
@@ -93,10 +90,8 @@ class ImageSegmentator {
         return
       }
 
-      // Specify the options for the TF Lite `Interpreter`.
+      // Specify the options for the `ImageSegmenter`.
       let options = ImageSegmenterOptions(modelPath: modelPath)
-      // Configure any additional options:
-      // options.outputType = OutputType.confidenceMasks
 
       do {
         let segmenter = try ImageSegmenter.imageSegmenter(options: options)
@@ -128,9 +123,6 @@ class ImageSegmentator {
   ) {
     // Store TF Lite intepreter
     self.segmenter = segmenter
-
-    // Store label list
-    self.labelList = labelList
 
     // Store the dedicated DispatchQueue for TFLite.
     self.tfLiteQueue = tfLiteQueue
@@ -172,6 +164,7 @@ class ImageSegmentator {
         }
         return
       }
+      startTime = Date()
 
       /// Postprocessing: Convert `SegmentationResult` to the segmentation mask and color for each pixel.
       guard let parsedOutput = self.parseOutput(segmentationResult: segmentationResult) else { return }
@@ -182,6 +175,7 @@ class ImageSegmentator {
       // Optimization Level in the project's Build Settings to the same value with Release build.
       var now = Date()
       postprocessingTime = now.timeIntervalSince(startTime)
+
       startTime = Date()
       // Visualize result into images.
       guard
@@ -232,7 +226,7 @@ class ImageSegmentator {
     let mask = categoryMask.mask
     let results = [UInt8](UnsafeMutableBufferPointer(start: mask, count: categoryMask.width * categoryMask.height))
     let classList = Array(Set(results))
-    let classLables = classList.map({ labelList[Int($0)] })
+    let classLables = classList.map({ segmentation.coloredLabels[Int($0)].label })
     let classColors: [UIColor] = classList.map({
       let colorLabel = segmentation.coloredLabels[Int($0)]
       return UIColor(red: CGFloat(colorLabel.r)/255.0,
@@ -283,26 +277,6 @@ class ImageSegmentator {
     // Convert the CGImage instance to an UIImage instance.
     return UIImage(cgImage: cgImage)
   }
-
-  /// Look up the colors used to visualize the classes found in the image.
-  private func classListToColorLegend(classList: Set<UInt8>) -> [String: UIColor] {
-    var colorLegend: [String: UIColor] = [:]
-    let sortedClassIndexList = classList.sorted()
-    sortedClassIndexList.forEach { classIndex in
-      // Look up the color legend for the class.
-      // Using modulo to reuse colors on segmentation model with large number of classes.
-      let color = Constants.legendColorList[Int(classIndex) % Constants.legendColorList.count]
-
-      // Convert the color from sRGB UInt32 representation to UIColor.
-      let a = CGFloat((color & 0xFF00_0000) >> 24) / 255.0
-      let r = CGFloat((color & 0x00FF_0000) >> 16) / 255.0
-      let g = CGFloat((color & 0x0000_FF00) >> 8) / 255.0
-      let b = CGFloat(color & 0x0000_00FF) / 255.0
-      colorLegend[labelList[Int(classIndex)]] = UIColor(red: r, green: g, blue: b, alpha: a)
-    }
-    return colorLegend
-  }
-
 }
 
 // MARK: - Types
@@ -379,7 +353,7 @@ private enum Constants {
   static let labelsFileExtension = "json"
 
   /// The TF Lite segmentation model file
-  static let modelFileName = "deeplabv3_257_mv_gpu"
+  static let modelFileName = "deeplabv3"
   static let modelFileExtension = "tflite"
 
   /// List of colors to visualize segmentation result.

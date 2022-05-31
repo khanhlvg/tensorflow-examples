@@ -16,7 +16,6 @@
 		7F9738DD234071180058C202 /* ImageSegmentator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9738DC234071180058C202 /* ImageSegmentator.swift */; };
 		7F9738DF234072CE0058C202 /* deeplabv3_labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F9738DE234072CE0058C202 /* deeplabv3_labels.json */; };
 		7F9738E22341EFDD0058C202 /* TFLiteExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9738E12341EFDD0058C202 /* TFLiteExtension.swift */; };
-		7F9738E323422B200058C202 /* deeplabv3_257_mv_gpu.tflite in Resources */ = {isa = PBXBuildFile; fileRef = 7F9738E02340733F0058C202 /* deeplabv3_257_mv_gpu.tflite */; };
 		7F9738E72343CE9F0058C202 /* UIKitExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9738E62343CE9F0058C202 /* UIKitExtension.swift */; };
 		7FA4B36F2345BC73005784A9 /* boy.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 7FA4B36E2345BC73005784A9 /* boy.jpg */; };
 /* End PBXBuildFile section */
@@ -31,12 +30,12 @@
 		7F67812C23405196002A02F2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7F9738DC234071180058C202 /* ImageSegmentator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageSegmentator.swift; sourceTree = "<group>"; };
 		7F9738DE234072CE0058C202 /* deeplabv3_labels.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = deeplabv3_labels.json; sourceTree = "<group>"; };
-		7F9738E02340733F0058C202 /* deeplabv3_257_mv_gpu.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = deeplabv3_257_mv_gpu.tflite; sourceTree = "<group>"; };
 		7F9738E12341EFDD0058C202 /* TFLiteExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TFLiteExtension.swift; sourceTree = "<group>"; };
 		7F9738E62343CE9F0058C202 /* UIKitExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIKitExtension.swift; sourceTree = "<group>"; };
 		7FA4B36E2345BC73005784A9 /* boy.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = boy.jpg; sourceTree = "<group>"; };
 		8857CE6BF260FD2EBF0CDB36 /* Pods-ImageSegmentation.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ImageSegmentation.release.xcconfig"; path = "Pods/Target Support Files/Pods-ImageSegmentation/Pods-ImageSegmentation.release.xcconfig"; sourceTree = "<group>"; };
 		AFA20F57D312CC344EAF47D5 /* Pods-ImageSegmentation.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ImageSegmentation.debug.xcconfig"; path = "Pods/Target Support Files/Pods-ImageSegmentation/Pods-ImageSegmentation.debug.xcconfig"; sourceTree = "<group>"; };
+		BF43FFBE2845EE2A00D8FB74 /* deeplabv3.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = deeplabv3.tflite; sourceTree = "<group>"; };
 		D23CF8BF5D33ABF1A65D8568 /* Pods_ImageSegmentation.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ImageSegmentation.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -109,7 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				7F9738DE234072CE0058C202 /* deeplabv3_labels.json */,
-				7F9738E02340733F0058C202 /* deeplabv3_257_mv_gpu.tflite */,
+				BF43FFBE2845EE2A00D8FB74 /* deeplabv3.tflite */,
 			);
 			path = model;
 			sourceTree = "<group>";
@@ -178,7 +177,6 @@
 				7F67812B23405196002A02F2 /* LaunchScreen.storyboard in Resources */,
 				7F67812823405196002A02F2 /* Assets.xcassets in Resources */,
 				7F9738DF234072CE0058C202 /* deeplabv3_labels.json in Resources */,
-				7F9738E323422B200058C202 /* deeplabv3_257_mv_gpu.tflite in Resources */,
 				7F67812623405195002A02F2 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

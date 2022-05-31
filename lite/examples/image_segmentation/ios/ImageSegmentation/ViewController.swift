@@ -126,41 +126,41 @@ extension ViewController {
   func runSegmentation(_ image: UIImage) {
     clearResults()
 
-//     Rotate target image to .up orientation to avoid potential orientation misalignment.
+    // Rotate target image to .up orientation to avoid potential orientation misalignment.
     guard let targetImage = image.transformOrientationToUp() else {
       inferenceStatusLabel.text = "ERROR: Image orientation couldn't be fixed."
       return
     }
 
-//     Make sure that image segmentator is initialized.
+    // Make sure that image segmentator is initialized.
     guard let imageSegmentator = imageSegmentator else {
       inferenceStatusLabel.text = "ERROR: Image Segmentator is not ready."
       return
     }
 
-//     Cache the target image.
+    // Cache the target image.
     self.targetImage = image
 
-//     Center-crop the target image if the user has enabled the option.
+    // Center-crop the target image if the user has enabled the option.
     let willCenterCrop = cropSwitch.isOn
     let image = willCenterCrop ? image.cropCenter() : targetImage
 
     // Cache the potentially cropped image as input to the segmentation model.
     segmentationInput = image
-//
+
     // Show the potentially cropped image on screen.
     imageView.image = image
-//
+
     // Make sure that the image is ready before running segmentation.
     guard let image = image else {
       inferenceStatusLabel.text = "ERROR: Image could not be cropped."
       return
     }
 
-//     Lock the crop switch while segmentation is running.
+    // Lock the crop switch while segmentation is running.
     cropSwitch.isEnabled = false
 
-//     Run image segmentation.
+    // Run image segmentation.
     imageSegmentator.runSegmentation(
       image,
       completion: { result in
