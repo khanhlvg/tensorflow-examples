@@ -143,7 +143,7 @@ extension ViewController {
 
     // Center-crop the target image if the user has enabled the option.
     let willCenterCrop = cropSwitch.isOn
-    let image = willCenterCrop ? image.cropCenter() : targetImage
+    let image = willCenterCrop ? targetImage.cropCenter() : targetImage
 
     // Cache the potentially cropped image as input to the segmentation model.
     segmentationInput = image
