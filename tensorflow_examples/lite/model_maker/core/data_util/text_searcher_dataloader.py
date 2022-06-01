@@ -20,11 +20,11 @@ import os
 import numpy as np
 from tensorflow_examples.lite.model_maker.core.api.api_util import mm_export
 from tensorflow_examples.lite.model_maker.core.data_util import searcher_dataloader
-from tensorflow_lite_support.python.task.core.proto import base_options_pb2
+from tensorflow_lite_support.python.task.core import base_options as base_options_module
 from tensorflow_lite_support.python.task.processor.proto import embedding_options_pb2
 from tensorflow_lite_support.python.task.text import text_embedder
 
-_BaseOptions = base_options_pb2.BaseOptions
+_BaseOptions = base_options_module.BaseOptions
 
 
 @mm_export("searcher.TextDataLoader")
@@ -99,6 +99,7 @@ class DataLoader(searcher_dataloader.DataLoader):
     embedding_list = []
     metadata_list = []
 
+    i = 0
     # Reads the text and metadata one by one from the csv file.
     with open(path, "r") as f:
       reader = csv.DictReader(f, delimiter=delimiter, quotechar=quotechar)
@@ -106,7 +107,7 @@ class DataLoader(searcher_dataloader.DataLoader):
         text, metadata = line[text_column], line[metadata_column]
         try:
           embedding = self._embedder.embed(
-              text).embeddings[0].feature_vector.value_float
+              text).embeddings[0].feature_vector.value
         except (ValueError, RuntimeError) as e:
           logging.warning("Can't get the embedding of %s with the error %s",
                           text, e)
@@ -114,6 +115,10 @@ class DataLoader(searcher_dataloader.DataLoader):
 
         embedding_list.append(embedding)
         metadata_list.append(metadata)
+
+        i += 1
+        if i % 1000 == 0:
+          logging.info("Processed %d text strings.", i)
 
     cache_dataset = np.stack(embedding_list)
     self._cache_dataset_list.append(cache_dataset)

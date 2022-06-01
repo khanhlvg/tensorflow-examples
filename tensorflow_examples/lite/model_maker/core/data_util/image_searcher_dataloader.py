@@ -21,13 +21,13 @@ import numpy as np
 from tensorflow_examples.lite.model_maker.core.api.api_util import mm_export
 from tensorflow_examples.lite.model_maker.core.data_util import metadata_loader
 from tensorflow_examples.lite.model_maker.core.data_util import searcher_dataloader
-from tensorflow_lite_support.python.task.core.proto import base_options_pb2
+from tensorflow_lite_support.python.task.core import base_options as base_options_module
 from tensorflow_lite_support.python.task.processor.proto import embedding_options_pb2
 from tensorflow_lite_support.python.task.vision import image_embedder
 from tensorflow_lite_support.python.task.vision.core import tensor_image
 
 _MetadataType = metadata_loader.MetadataType
-_BaseOptions = base_options_pb2.BaseOptions
+_BaseOptions = base_options_module.BaseOptions
 
 
 @mm_export("searcher.ImageDataLoader")
@@ -106,6 +106,7 @@ class DataLoader(searcher_dataloader.DataLoader):
     embedding_list = []
     metadata_list = []
 
+    i = 0
     # Gets the image files in the folder and loads images.
     for root, _, files in os.walk(path):
       for name in files:
@@ -116,7 +117,7 @@ class DataLoader(searcher_dataloader.DataLoader):
         image = tensor_image.TensorImage.create_from_file(image_path)
         try:
           embedding = self._embedder.embed(
-              image).embeddings[0].feature_vector.value_float
+              image).embeddings[0].feature_vector.value
         except (RuntimeError, ValueError) as e:
           logging.warning("Can't get the embedding of %s with the error %s",
                           image_path, e)
@@ -125,6 +126,10 @@ class DataLoader(searcher_dataloader.DataLoader):
         embedding_list.append(embedding)
         metadata = self._metadata_loader.load(image_path)
         metadata_list.append(metadata)
+
+        i += 1
+        if i % 1000 == 0:
+          logging.info("Processed %d images.", i)
 
     cache_dataset = np.stack(embedding_list)
     self._cache_dataset_list.append(cache_dataset)
