@@ -72,8 +72,7 @@ class InferenceViewController: UIViewController {
   var wantedInputHeight: Int = 0
   var resolution: CGSize = CGSize.zero
   var maxResults: Int = 0
-  var threadCountLimit: Int = 0
-  private var currentThreadCount: Int = 0
+  var currentThreadCount: Int = 0
   private var infoTextColor = UIColor.black
 
   // MARK: Delegate
@@ -90,8 +89,6 @@ class InferenceViewController: UIViewController {
 
     // Set up stepper
     threadStepper.isUserInteractionEnabled = true
-    threadStepper.maximumValue = Double(threadCountLimit)
-    threadStepper.minimumValue = Double(minThreadCount)
     threadStepper.value = Double(currentThreadCount)
 
     // Set the info text color on iOS 11 and higher.
@@ -215,7 +212,7 @@ extension InferenceViewController: UITableViewDelegate, UITableViewDataSource {
     var fieldName: String = ""
     var info: String = ""
 
-    guard let tempResult = inferenceResult, tempResult.inferences.count > 0 else {
+    guard let tempResult = inferenceResult, tempResult.classifications.categories.count > 0 else {
 
       if row == 1 {
         fieldName = "No Results"
@@ -228,10 +225,10 @@ extension InferenceViewController: UITableViewDelegate, UITableViewDataSource {
       return (fieldName, info)
     }
 
-    if row < tempResult.inferences.count {
-      let inference = tempResult.inferences[row]
-      fieldName = inference.label
-      info =  String(format: "%.2f", inference.confidence * 100.0) + "%"
+    if row < tempResult.classifications.categories.count {
+      let category = tempResult.classifications.categories[row]
+      fieldName = category.label ?? ""
+      info =  String(format: "%.2f", category.score * 100.0) + "%"
     }
     else {
       fieldName = ""

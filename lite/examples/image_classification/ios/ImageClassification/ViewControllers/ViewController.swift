@@ -36,14 +36,21 @@ class ViewController: UIViewController {
   private var result: Result?
   private var initialBottomSpace: CGFloat = 0.0
   private var previousInferenceTimeMs: TimeInterval = Date.distantPast.timeIntervalSince1970 * 1000
+  private var threadCount: Int = DefaultConstants.threadCount
+  private var maxResults: Int = DefaultConstants.maxResults
+  private var scoreThreshold: Float = DefaultConstants.scoreThreshold
+  private var modelInfo: FileInfo = DefaultConstants.modelInfo
 
   // MARK: Controllers that manage functionality
   // Handles all the camera related functionality
   private lazy var cameraCapture = CameraFeedManager(previewView: previewView)
 
   // Handles all data preprocessing and makes calls to run inference through the `Interpreter`.
-  private var modelDataHandler: ModelDataHandler? =
-    ModelDataHandler(modelFileInfo: MobileNet.modelInfo, labelsFileInfo: MobileNet.labelsInfo)
+  private var modelDataHandler: ClassificationHelper? =
+    ClassificationHelper(modelFileInfo: DefaultConstants.modelInfo,
+                         threadCount: DefaultConstants.threadCount,
+                         resultCount: DefaultConstants.maxResults,
+                         scoreThreshold: DefaultConstants.scoreThreshold)
 
   // Handles the presenting of results on the screen
   private var inferenceViewController: InferenceViewController?
@@ -56,13 +63,6 @@ class ViewController: UIViewController {
       fatalError("Model set up failed")
     }
 
-#if targetEnvironment(simulator)
-    previewView.shouldUseClipboardImage = true
-    NotificationCenter.default.addObserver(self,
-                                           selector: #selector(classifyPasteboardImage),
-                                           name: UIApplication.didBecomeActiveNotification,
-                                           object: nil)
-#endif
     cameraCapture.delegate = self
 
     addPanGesture()
@@ -106,30 +106,11 @@ class ViewController: UIViewController {
 
     if segue.identifier == "EMBED" {
 
-      guard let tempModelDataHandler = modelDataHandler else {
-        return
-      }
       inferenceViewController = segue.destination as? InferenceViewController
-      inferenceViewController?.maxResults = tempModelDataHandler.resultCount
-      inferenceViewController?.threadCountLimit = tempModelDataHandler.threadCountLimit
+      inferenceViewController?.maxResults = maxResults
+      inferenceViewController?.currentThreadCount = threadCount
       inferenceViewController?.delegate = self
 
-    }
-  }
-
-  @objc func classifyPasteboardImage() {
-    guard let image = UIPasteboard.general.images?.first else {
-      return
-    }
-
-    guard let buffer = CVImageBuffer.buffer(from: image) else {
-      return
-    }
-
-    previewView.image = image
-
-    DispatchQueue.global().async {
-      self.didOutput(pixelBuffer: buffer)
     }
   }
 
@@ -143,11 +124,13 @@ class ViewController: UIViewController {
 extension ViewController: InferenceViewControllerDelegate {
 
   func didChangeThreadCount(to count: Int) {
-    if modelDataHandler?.threadCount == count { return }
-    modelDataHandler = ModelDataHandler(
+    if threadCount == count { return }
+    threadCount = count
+    modelDataHandler = ClassificationHelper(
       modelFileInfo: MobileNet.modelInfo,
-      labelsFileInfo: MobileNet.labelsInfo,
-      threadCount: count
+      threadCount: threadCount,
+      resultCount: maxResults,
+      scoreThreshold: scoreThreshold
     )
   }
 }
@@ -161,7 +144,7 @@ extension ViewController: CameraFeedManagerDelegate {
     previousInferenceTimeMs = currentTimeMs
 
     // Pass the pixel buffer to TensorFlow Lite to perform inference.
-    result = modelDataHandler?.runModel(onFrame: pixelBuffer)
+    result = modelDataHandler?.classificate(onFrame: pixelBuffer)
 
     // Display results by handing off to the InferenceViewController.
     DispatchQueue.main.async {
@@ -356,4 +339,12 @@ extension ViewController {
     view.setNeedsLayout()
   }
 
+}
+
+// Define default constants
+struct DefaultConstants {
+  static let threadCount: Int = 3
+  static let maxResults: Int = 3
+  static let scoreThreshold: Float = 0.3
+  static let modelInfo: FileInfo = FileInfo(name: "mobilenet_quant_v1_224", extension: "tflite")
 }

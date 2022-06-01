@@ -12,21 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CoreImage
 import TensorFlowLiteTaskVision
 import UIKit
-import Accelerate
 
 /// A result from the `Classifications`.
 struct Result {
   let inferenceTime: Double
-  let inferences: [Inference]
-}
-
-/// An inference from the `Classifications`.
-struct Inference {
-  let confidence: Float
-  let label: String
+  let classifications: Classifications
 }
 
 /// Information about a model file or labels file.
@@ -41,19 +33,9 @@ enum MobileNet {
 /// This class handles all data preprocessing and makes calls to run inference on a given frame
 /// by invoking the `Interpreter`. It then formats the inferences obtained and returns the top N
 /// results for a successful inference.
-class ModelDataHandler {
-
-  // MARK: - Internal Properties
-
-  let resultCount = 3
-  let threadCount: Int
-  let threadCountLimit = 10
-
+class ClassificationHelper {
 
   // MARK: - Model Parameters
-
-  /// List of labels from the given labels file.
-  private var labels: [String] = []
 
   /// TensorFlow Lite `Interpreter` object for performing inference on a given model.
   private var classifier: ImageClassifier
@@ -63,11 +45,10 @@ class ModelDataHandler {
 
   // MARK: - Initialization
 
-  /// A failable initializer for `ModelDataHandler`. A new instance is created if the model and
+  /// A failable initializer for `ClassificationHelper`. A new instance is created if the model and
   /// labels files are successfully loaded from the app's main bundle. Default `threadCount` is 1.
-  init?(modelFileInfo: FileInfo, labelsFileInfo: FileInfo, threadCount: Int = 1) {
+  init?(modelFileInfo: FileInfo, threadCount: Int, resultCount: Int, scoreThreshold: Float) {
     let modelFilename = modelFileInfo.name
-    self.threadCount = threadCount
     // Construct the path to the model file.
     guard let modelPath = Bundle.main.path(
       forResource: modelFilename,
@@ -79,6 +60,7 @@ class ModelDataHandler {
     let options = ImageClassifierOptions(modelPath: modelPath)
     // Configure any classification options:
     options.classificationOptions.maxResults = resultCount
+    options.classificationOptions.scoreThreshold = scoreThreshold
     options.baseOptions.computeSettings.cpuSettings.numThreads = Int32(threadCount)
     do {
       classifier = try ImageClassifier.imageClassifier(options: options)
@@ -86,13 +68,12 @@ class ModelDataHandler {
       print("Failed to create the interpreter with error: \(error.localizedDescription)")
       return nil
     }
-    loadLabels(fileInfo: labelsFileInfo)
   }
 
   // MARK: - Internal Methods
 
   /// Performs image preprocessing, invokes the `Interpreter`, and processes the inference results.
-  func runModel(onFrame pixelBuffer: CVPixelBuffer) -> Result? {
+  func classificate(onFrame pixelBuffer: CVPixelBuffer) -> Result? {
 
     guard let mlImage = MLImage(pixelBuffer: pixelBuffer) else { return nil }
 
@@ -102,32 +83,10 @@ class ModelDataHandler {
       let classificationResults = try classifier.classify(gmlImage: mlImage)
       let interval = Date().timeIntervalSince(startDate) * 1000
       guard let classifications = classificationResults.classifications.first else { return nil }
-      // Convert classifications to infrences
-      let inferences = classifications.categories.map({
-        Inference(confidence: $0.score, label: labels[$0.index])
-      })
-      return Result(inferenceTime: interval, inferences: inferences)
+      return Result(inferenceTime: interval, classifications: classifications)
     } catch let error {
       print("Failed to invoke the interpreter with error: \(error.localizedDescription)")
       return nil
-    }
-  }
-
-  // MARK: - Private Methods
-  /// Loads the labels from the labels file and stores them in the `labels` property.
-  private func loadLabels(fileInfo: FileInfo) {
-    let filename = fileInfo.name
-    let fileExtension = fileInfo.extension
-    guard let fileURL = Bundle.main.url(forResource: filename, withExtension: fileExtension) else {
-      fatalError("Labels file not found in bundle. Please add a labels file with name " +
-                 "\(filename).\(fileExtension) and try again.")
-    }
-    do {
-      let contents = try String(contentsOf: fileURL, encoding: .utf8)
-      labels = contents.components(separatedBy: .newlines)
-    } catch {
-      fatalError("Labels file named \(filename).\(fileExtension) cannot be read. Please add a " +
-                 "valid labels file and try again.")
     }
   }
 }
