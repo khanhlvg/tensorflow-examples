@@ -25,6 +25,7 @@ class ViewController: UIViewController {
 
   @IBOutlet weak var bottomSheetViewBottomSpace: NSLayoutConstraint!
   @IBOutlet weak var bottomSheetStateImageView: UIImageView!
+  @IBOutlet weak var bottomViewHeightConstraint: NSLayoutConstraint!
   // MARK: Constants
   private let animationDuration = 0.5
   private let collapseTransitionThreshold: CGFloat = -40.0
@@ -36,14 +37,27 @@ class ViewController: UIViewController {
   private var result: Result?
   private var initialBottomSpace: CGFloat = 0.0
   private var previousInferenceTimeMs: TimeInterval = Date.distantPast.timeIntervalSince1970 * 1000
+  private var threadCount: Int = DefaultConstants.threadCount
+  private var maxResults: Int = DefaultConstants.maxResults {
+    didSet {
+      guard let inferenceVC = inferenceViewController else { return }
+      bottomViewHeightConstraint.constant = inferenceVC.collapsedHeight + 290
+      view.layoutSubviews()
+    }
+  }
+  private var scoreThreshold: Float = DefaultConstants.scoreThreshold
+  private var model: ModelType = .efficientnetLite0
 
   // MARK: Controllers that manage functionality
   // Handles all the camera related functionality
   private lazy var cameraCapture = CameraFeedManager(previewView: previewView)
 
   // Handles all data preprocessing and makes calls to run inference through the `Interpreter`.
-  private var modelDataHandler: ModelDataHandler? =
-    ModelDataHandler(modelFileInfo: MobileNet.modelInfo, labelsFileInfo: MobileNet.labelsInfo)
+  private var modelDataHandler: ClassificationHelper? =
+  ClassificationHelper(modelFileInfo: DefaultConstants.model.modelFileInfo,
+                         threadCount: DefaultConstants.threadCount,
+                         resultCount: DefaultConstants.maxResults,
+                         scoreThreshold: DefaultConstants.scoreThreshold)
 
   // Handles the presenting of results on the screen
   private var inferenceViewController: InferenceViewController?
@@ -56,23 +70,20 @@ class ViewController: UIViewController {
       fatalError("Model set up failed")
     }
 
-#if targetEnvironment(simulator)
-    previewView.shouldUseClipboardImage = true
-    NotificationCenter.default.addObserver(self,
-                                           selector: #selector(classifyPasteboardImage),
-                                           name: UIApplication.didBecomeActiveNotification,
-                                           object: nil)
-#endif
     cameraCapture.delegate = self
 
     addPanGesture()
+
+    guard let inferenceVC = inferenceViewController else { return }
+    bottomViewHeightConstraint.constant = inferenceVC.collapsedHeight + 290
+    view.layoutSubviews()
   }
 
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
-
-    changeBottomViewState()
-
+    DispatchQueue.main.asyncAfter(deadline: .now()+0.01) {
+      self.changeBottomViewState()
+    }
 #if !targetEnvironment(simulator)
     cameraCapture.checkCameraConfigurationAndStartSession()
 #endif
@@ -106,32 +117,11 @@ class ViewController: UIViewController {
 
     if segue.identifier == "EMBED" {
 
-      guard let tempModelDataHandler = modelDataHandler else {
-        return
-      }
       inferenceViewController = segue.destination as? InferenceViewController
-      inferenceViewController?.wantedInputHeight = tempModelDataHandler.inputHeight
-      inferenceViewController?.wantedInputWidth = tempModelDataHandler.inputWidth
-      inferenceViewController?.maxResults = tempModelDataHandler.resultCount
-      inferenceViewController?.threadCountLimit = tempModelDataHandler.threadCountLimit
+      inferenceViewController?.maxResults = maxResults
+      inferenceViewController?.currentThreadCount = threadCount
       inferenceViewController?.delegate = self
 
-    }
-  }
-
-  @objc func classifyPasteboardImage() {
-    guard let image = UIPasteboard.general.images?.first else {
-      return
-    }
-
-    guard let buffer = CVImageBuffer.buffer(from: image) else {
-      return
-    }
-
-    previewView.image = image
-
-    DispatchQueue.global().async {
-      self.didOutput(pixelBuffer: buffer)
     }
   }
 
@@ -143,15 +133,40 @@ class ViewController: UIViewController {
 
 // MARK: InferenceViewControllerDelegate Methods
 extension ViewController: InferenceViewControllerDelegate {
-
-  func didChangeThreadCount(to count: Int) {
-    if modelDataHandler?.threadCount == count { return }
-    modelDataHandler = ModelDataHandler(
-      modelFileInfo: MobileNet.modelInfo,
-      labelsFileInfo: MobileNet.labelsInfo,
-      threadCount: count
-    )
+  func viewController(_ viewController: InferenceViewController, needPerformActions action: InferenceViewController.Action) {
+    var needRefressModel = false
+    switch action {
+    case .changeThreadCount(let threadCount):
+      if self.threadCount != threadCount {
+        needRefressModel = true
+      }
+      self.threadCount = threadCount
+    case .changeScoreThreshold(let scoreThreshold):
+      if self.scoreThreshold != scoreThreshold {
+        needRefressModel = true
+      }
+      self.scoreThreshold = scoreThreshold
+    case .changeMaxResults(let maxResults):
+      if self.maxResults != maxResults {
+        needRefressModel = true
+      }
+      self.maxResults = maxResults
+    case .changeModel(let model):
+      if self.model != model {
+        needRefressModel = true
+      }
+      self.model = model
+    }
+    if needRefressModel {
+      modelDataHandler = ClassificationHelper(
+        modelFileInfo: model.modelFileInfo,
+        threadCount: threadCount,
+        resultCount: maxResults,
+        scoreThreshold: scoreThreshold
+      )
+    }
   }
+
 }
 
 // MARK: CameraFeedManagerDelegate Methods
@@ -163,7 +178,7 @@ extension ViewController: CameraFeedManagerDelegate {
     previousInferenceTimeMs = currentTimeMs
 
     // Pass the pixel buffer to TensorFlow Lite to perform inference.
-    result = modelDataHandler?.runModel(onFrame: pixelBuffer)
+    result = modelDataHandler?.classificate(onFrame: pixelBuffer)
 
     // Display results by handing off to the InferenceViewController.
     DispatchQueue.main.async {
@@ -248,7 +263,6 @@ extension ViewController {
     }
 
     if bottomSheetViewBottomSpace.constant == inferenceVC.collapsedHeight - bottomSheetView.bounds.size.height {
-
       bottomSheetViewBottomSpace.constant = 0.0
     }
     else {
@@ -358,4 +372,51 @@ extension ViewController {
     view.setNeedsLayout()
   }
 
+}
+
+// Define default constants
+struct DefaultConstants {
+  static let threadCount: Int = 3
+  static let maxResults: Int = 3
+  static let scoreThreshold: Float = 0.3
+  static let model: ModelType = .efficientnetLite0
+}
+
+/// TFLite model types
+enum ModelType: CaseIterable {
+  case efficientnetLite0
+  case efficientnetLite1
+  case efficientnetLite2
+  case efficientnetLite3
+  case efficientnetLite4
+
+  var modelFileInfo: FileInfo {
+    switch self {
+    case .efficientnetLite0:
+      return FileInfo("efficientnet_lite0", "tflite")
+    case .efficientnetLite1:
+      return FileInfo("efficientnet_lite1", "tflite")
+    case .efficientnetLite2:
+      return FileInfo("efficientnet_lite2", "tflite")
+    case .efficientnetLite3:
+      return FileInfo("efficientnet_lite3", "tflite")
+    case .efficientnetLite4:
+      return FileInfo("efficientnet_lite4", "tflite")
+    }
+  }
+
+  var title: String {
+    switch self {
+    case .efficientnetLite0:
+      return "EfficientNet-Lite0"
+    case .efficientnetLite1:
+      return "EfficientNet-Lite1"
+    case .efficientnetLite2:
+      return "EfficientNet-Lite2"
+    case .efficientnetLite3:
+      return "EfficientNet-Lite3"
+    case .efficientnetLite4:
+      return "EfficientNet-Lite4"
+    }
+  }
 }
