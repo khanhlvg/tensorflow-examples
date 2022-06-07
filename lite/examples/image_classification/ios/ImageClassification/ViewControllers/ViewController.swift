@@ -39,7 +39,7 @@ class ViewController: UIViewController {
   private var threadCount: Int = DefaultConstants.threadCount
   private var maxResults: Int = DefaultConstants.maxResults
   private var scoreThreshold: Float = DefaultConstants.scoreThreshold
-  private var modelInfo: FileInfo = DefaultConstants.modelInfo
+  private var model: ModelType = .efficientnetLite0
 
   // MARK: Controllers that manage functionality
   // Handles all the camera related functionality
@@ -47,7 +47,7 @@ class ViewController: UIViewController {
 
   // Handles all data preprocessing and makes calls to run inference through the `Interpreter`.
   private var modelDataHandler: ClassificationHelper? =
-    ClassificationHelper(modelFileInfo: DefaultConstants.modelInfo,
+  ClassificationHelper(modelFileInfo: DefaultConstants.model.modelFileInfo,
                          threadCount: DefaultConstants.threadCount,
                          resultCount: DefaultConstants.maxResults,
                          scoreThreshold: DefaultConstants.scoreThreshold)
@@ -122,6 +122,40 @@ class ViewController: UIViewController {
 
 // MARK: InferenceViewControllerDelegate Methods
 extension ViewController: InferenceViewControllerDelegate {
+  func viewController(_ viewController: InferenceViewController, needPerformActions action: InferenceViewController.Action) {
+    var needRefressModel = false
+    switch action {
+    case .changeThreadCount(let threadCount):
+      if self.threadCount != threadCount {
+        needRefressModel = true
+      }
+      self.threadCount = threadCount
+    case .changeScoreThreshold(let scoreThreshold):
+      if self.scoreThreshold != scoreThreshold {
+        needRefressModel = true
+      }
+      self.scoreThreshold = scoreThreshold
+    case .changeMaxResults(let maxResults):
+      if self.maxResults != maxResults {
+        needRefressModel = true
+      }
+      self.maxResults = maxResults
+    case .changeModel(let model):
+      if self.model != model {
+        needRefressModel = true
+      }
+      self.model = model
+    }
+    if needRefressModel {
+      modelDataHandler = ClassificationHelper(
+        modelFileInfo: model.modelFileInfo,
+        threadCount: threadCount,
+        resultCount: maxResults,
+        scoreThreshold: scoreThreshold
+      )
+    }
+  }
+
 
   func didChangeThreadCount(to count: Int) {
     if threadCount == count { return }
@@ -346,5 +380,44 @@ struct DefaultConstants {
   static let threadCount: Int = 3
   static let maxResults: Int = 3
   static let scoreThreshold: Float = 0.3
-  static let modelInfo: FileInfo = FileInfo(name: "mobilenet_quant_v1_224", extension: "tflite")
+  static let model: ModelType = .efficientnetLite0
+}
+
+/// TFLite model types
+enum ModelType: CaseIterable {
+  case efficientnetLite0
+  case efficientnetLite1
+  case efficientnetLite2
+  case efficientnetLite3
+  case efficientnetLite4
+
+  var modelFileInfo: FileInfo {
+    switch self {
+    case .efficientnetLite0:
+      return FileInfo("efficientnet_lite0", "tflite")
+    case .efficientnetLite1:
+      return FileInfo("efficientnet_lite1", "tflite")
+    case .efficientnetLite2:
+      return FileInfo("efficientnet_lite2", "tflite")
+    case .efficientnetLite3:
+      return FileInfo("efficientnet_lite3", "tflite")
+    case .efficientnetLite4:
+      return FileInfo("efficientnet_lite4", "tflite")
+    }
+  }
+
+  var title: String {
+    switch self {
+    case .efficientnetLite0:
+      return "EfficientDet-Lite0"
+    case .efficientnetLite1:
+      return "EfficientDet-Lite1"
+    case .efficientnetLite2:
+      return "EfficientDet-Lite2"
+    case .efficientnetLite3:
+      return "EfficientDet-Lite3"
+    case .efficientnetLite4:
+      return "EfficientDet-Lite4"
+    }
+  }
 }
