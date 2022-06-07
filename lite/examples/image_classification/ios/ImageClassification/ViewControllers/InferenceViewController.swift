@@ -170,7 +170,7 @@ class InferenceViewController: UIViewController {
   @IBAction func thresholdStepperValueChanged(_ sender: UIStepper) {
     scoreThreshold = Float(sender.value)
     delegate?.viewController(self, needPerformActions: .changeScoreThreshold(scoreThreshold))
-    threadValueLabel.text = "\(scoreThreshold)"
+    thresholdValueLabel.text = "\(scoreThreshold)"
   }
 
   @IBAction func maxResultStepperValueChanged(_ sender: UIStepper) {
