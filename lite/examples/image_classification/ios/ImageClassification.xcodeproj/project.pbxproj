@@ -89,13 +89,13 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		AA5FEB7A21355CCC00F9BD4B /* Model */ = {
+		AA5FEB7A21355CCC00F9BD4B /* TFlite */ = {
 			isa = PBXGroup;
 			children = (
 				AA5FEB7B21355CCC00F9BD4B /* mobilenet_quant_v1_224.tflite */,
 				AA5FEB7C21355CCC00F9BD4B /* labels.txt */,
 			);
-			path = Model;
+			path = TFlite;
 			sourceTree = "<group>";
 		};
 		AA5FEB7F21355D0300F9BD4B /* Storyboards */ = {
@@ -141,7 +141,7 @@
 				AABFCBB0213FE05000C0A67B /* ClassificationHelper */,
 				AAE79E932135236700E7AC1F /* ViewControllers */,
 				AAE79E972135268800E7AC1F /* Camera Feed */,
-				AA5FEB7A21355CCC00F9BD4B /* Model */,
+				AA5FEB7A21355CCC00F9BD4B /* TFlite */,
 				AA5FEB7F21355D0300F9BD4B /* Storyboards */,
 				AAE79E59213521DA00E7AC1F /* AppDelegate.swift */,
 				AAE79E60213521DB00E7AC1F /* Assets.xcassets */,
