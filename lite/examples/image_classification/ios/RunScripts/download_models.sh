@@ -24,10 +24,10 @@ EFFICIENTNET_LITE3_URL="https://tfhub.dev/tensorflow/efficientnet/lite3/classifi
 EFFICIENTNET_LITE4_URL="https://tfhub.dev/tensorflow/efficientnet/lite4/classification/2?tf-hub-format=compressed"
 
 EFFICIENTNET_LITE0_NAME="efficientnet_lite0.tflite"
-EFFICIENTNET_LITE1_NAME="EFFICIENTNET_LITE1.tflite"
-EFFICIENTNET_LITE2_NAME="EFFICIENTNET_LITE2.tflite"
-EFFICIENTNET_LITE3_NAME="EFFICIENTNET_LITE3.tflite"
-EFFICIENTNET_LITE4_NAME="EFFICIENTNET_LITE4.tflite"
+EFFICIENTNET_LITE1_NAME="efficientnet_lite1.tflite"
+EFFICIENTNET_LITE2_NAME="efficientnet_lite2.tflite"
+EFFICIENTNET_LITE3_NAME="efficientnet_lite3.tflite"
+EFFICIENTNET_LITE4_NAME="efficientnet_lite4.tflite"
 
 DOWNLOADS_DIR=$(mktemp -d)
 

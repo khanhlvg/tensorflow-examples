@@ -10,8 +10,6 @@
 		AA16E5A22180843800D9E153 /* InfoCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA16E5A12180843700D9E153 /* InfoCell.swift */; };
 		AA5B0EEA217E5E300026FF23 /* InferenceViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5B0EE9217E5E300026FF23 /* InferenceViewController.swift */; };
 		AA5B0EEC217E70000026FF23 /* CurvedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5B0EEB217E70000026FF23 /* CurvedView.swift */; };
-		AA5FEB7D21355CCC00F9BD4B /* mobilenet_quant_v1_224.tflite in Resources */ = {isa = PBXBuildFile; fileRef = AA5FEB7B21355CCC00F9BD4B /* mobilenet_quant_v1_224.tflite */; };
-		AA5FEB7E21355CCC00F9BD4B /* labels.txt in Resources */ = {isa = PBXBuildFile; fileRef = AA5FEB7C21355CCC00F9BD4B /* labels.txt */; };
 		AAE79E5A213521DA00E7AC1F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE79E59213521DA00E7AC1F /* AppDelegate.swift */; };
 		AAE79E5F213521DA00E7AC1F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AAE79E5D213521DA00E7AC1F /* Main.storyboard */; };
 		AAE79E61213521DB00E7AC1F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AAE79E60213521DB00E7AC1F /* Assets.xcassets */; };
@@ -20,6 +18,11 @@
 		AAE79E9A2135268800E7AC1F /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE79E982135268800E7AC1F /* PreviewView.swift */; };
 		AAE79E9B2135268800E7AC1F /* CameraFeedManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE79E992135268800E7AC1F /* CameraFeedManager.swift */; };
 		BF43FFC12846FEC000D8FB74 /* ClassificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF43FFC02846FEC000D8FB74 /* ClassificationHelper.swift */; };
+		BF863DEB284F01A00061B710 /* efficientnet_lite0.tflite in Resources */ = {isa = PBXBuildFile; fileRef = BF863DE6284F01A00061B710 /* efficientnet_lite0.tflite */; };
+		BF863DEC284F01A00061B710 /* efficientnet_lite2.tflite in Resources */ = {isa = PBXBuildFile; fileRef = BF863DE7284F01A00061B710 /* efficientnet_lite2.tflite */; };
+		BF863DED284F01A00061B710 /* efficientnet_lite3.tflite in Resources */ = {isa = PBXBuildFile; fileRef = BF863DE8284F01A00061B710 /* efficientnet_lite3.tflite */; };
+		BF863DEE284F01A00061B710 /* efficientnet_lite4.tflite in Resources */ = {isa = PBXBuildFile; fileRef = BF863DE9284F01A00061B710 /* efficientnet_lite4.tflite */; };
+		BF863DEF284F01A00061B710 /* efficientnet_lite1.tflite in Resources */ = {isa = PBXBuildFile; fileRef = BF863DEA284F01A00061B710 /* efficientnet_lite1.tflite */; };
 		F0A0B641A9D84A33D025544E /* Pods_ImageClassification.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4E76B784C111DBC26EEEC02A /* Pods_ImageClassification.framework */; };
 /* End PBXBuildFile section */
 
@@ -29,8 +32,6 @@
 		AA16E5A12180843700D9E153 /* InfoCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InfoCell.swift; sourceTree = "<group>"; };
 		AA5B0EE9217E5E300026FF23 /* InferenceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceViewController.swift; sourceTree = "<group>"; };
 		AA5B0EEB217E70000026FF23 /* CurvedView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CurvedView.swift; sourceTree = "<group>"; };
-		AA5FEB7B21355CCC00F9BD4B /* mobilenet_quant_v1_224.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = mobilenet_quant_v1_224.tflite; sourceTree = "<group>"; };
-		AA5FEB7C21355CCC00F9BD4B /* labels.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = labels.txt; sourceTree = "<group>"; };
 		AAE79E56213521DA00E7AC1F /* ImageClassification.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ImageClassification.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAE79E59213521DA00E7AC1F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AAE79E5E213521DA00E7AC1F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -41,6 +42,11 @@
 		AAE79E982135268800E7AC1F /* PreviewView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		AAE79E992135268800E7AC1F /* CameraFeedManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CameraFeedManager.swift; sourceTree = "<group>"; };
 		BF43FFC02846FEC000D8FB74 /* ClassificationHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ClassificationHelper.swift; sourceTree = "<group>"; };
+		BF863DE6284F01A00061B710 /* efficientnet_lite0.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = efficientnet_lite0.tflite; sourceTree = "<group>"; };
+		BF863DE7284F01A00061B710 /* efficientnet_lite2.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = efficientnet_lite2.tflite; sourceTree = "<group>"; };
+		BF863DE8284F01A00061B710 /* efficientnet_lite3.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = efficientnet_lite3.tflite; sourceTree = "<group>"; };
+		BF863DE9284F01A00061B710 /* efficientnet_lite4.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = efficientnet_lite4.tflite; sourceTree = "<group>"; };
+		BF863DEA284F01A00061B710 /* efficientnet_lite1.tflite */ = {isa = PBXFileReference; lastKnownFileType = file; path = efficientnet_lite1.tflite; sourceTree = "<group>"; };
 		E7F867EEDB032059F98AA497 /* Pods-ImageClassification.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ImageClassification.debug.xcconfig"; path = "Target Support Files/Pods-ImageClassification/Pods-ImageClassification.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -92,8 +98,11 @@
 		AA5FEB7A21355CCC00F9BD4B /* TFlite */ = {
 			isa = PBXGroup;
 			children = (
-				AA5FEB7B21355CCC00F9BD4B /* mobilenet_quant_v1_224.tflite */,
-				AA5FEB7C21355CCC00F9BD4B /* labels.txt */,
+				BF863DE6284F01A00061B710 /* efficientnet_lite0.tflite */,
+				BF863DEA284F01A00061B710 /* efficientnet_lite1.tflite */,
+				BF863DE7284F01A00061B710 /* efficientnet_lite2.tflite */,
+				BF863DE8284F01A00061B710 /* efficientnet_lite3.tflite */,
+				BF863DE9284F01A00061B710 /* efficientnet_lite4.tflite */,
 			);
 			path = TFlite;
 			sourceTree = "<group>";
@@ -230,10 +239,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAE79E64213521DB00E7AC1F /* LaunchScreen.storyboard in Resources */,
+				BF863DEE284F01A00061B710 /* efficientnet_lite4.tflite in Resources */,
 				AAE79E61213521DB00E7AC1F /* Assets.xcassets in Resources */,
-				AA5FEB7E21355CCC00F9BD4B /* labels.txt in Resources */,
+				BF863DEC284F01A00061B710 /* efficientnet_lite2.tflite in Resources */,
+				BF863DED284F01A00061B710 /* efficientnet_lite3.tflite in Resources */,
+				BF863DEF284F01A00061B710 /* efficientnet_lite1.tflite in Resources */,
 				AAE79E5F213521DA00E7AC1F /* Main.storyboard in Resources */,
-				AA5FEB7D21355CCC00F9BD4B /* mobilenet_quant_v1_224.tflite in Resources */,
+				BF863DEB284F01A00061B710 /* efficientnet_lite0.tflite in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
