@@ -25,6 +25,7 @@ class ViewController: UIViewController {
 
   @IBOutlet weak var bottomSheetViewBottomSpace: NSLayoutConstraint!
   @IBOutlet weak var bottomSheetStateImageView: UIImageView!
+  @IBOutlet weak var bottomViewHeightConstraint: NSLayoutConstraint!
   // MARK: Constants
   private let animationDuration = 0.5
   private let collapseTransitionThreshold: CGFloat = -40.0
@@ -37,7 +38,13 @@ class ViewController: UIViewController {
   private var initialBottomSpace: CGFloat = 0.0
   private var previousInferenceTimeMs: TimeInterval = Date.distantPast.timeIntervalSince1970 * 1000
   private var threadCount: Int = DefaultConstants.threadCount
-  private var maxResults: Int = DefaultConstants.maxResults
+  private var maxResults: Int = DefaultConstants.maxResults {
+    didSet {
+      guard let inferenceVC = inferenceViewController else { return }
+      bottomViewHeightConstraint.constant = inferenceVC.collapsedHeight + 290
+      view.layoutSubviews()
+    }
+  }
   private var scoreThreshold: Float = DefaultConstants.scoreThreshold
   private var model: ModelType = .efficientnetLite0
 
@@ -66,13 +73,17 @@ class ViewController: UIViewController {
     cameraCapture.delegate = self
 
     addPanGesture()
+
+    guard let inferenceVC = inferenceViewController else { return }
+    bottomViewHeightConstraint.constant = inferenceVC.collapsedHeight + 290
+    view.layoutSubviews()
   }
 
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
-
-    changeBottomViewState()
-
+    DispatchQueue.main.asyncAfter(deadline: .now()+0.01) {
+      self.changeBottomViewState()
+    }
 #if !targetEnvironment(simulator)
     cameraCapture.checkCameraConfigurationAndStartSession()
 #endif
@@ -156,17 +167,6 @@ extension ViewController: InferenceViewControllerDelegate {
     }
   }
 
-
-  func didChangeThreadCount(to count: Int) {
-    if threadCount == count { return }
-    threadCount = count
-    modelDataHandler = ClassificationHelper(
-      modelFileInfo: MobileNet.modelInfo,
-      threadCount: threadCount,
-      resultCount: maxResults,
-      scoreThreshold: scoreThreshold
-    )
-  }
 }
 
 // MARK: CameraFeedManagerDelegate Methods
@@ -263,7 +263,6 @@ extension ViewController {
     }
 
     if bottomSheetViewBottomSpace.constant == inferenceVC.collapsedHeight - bottomSheetView.bounds.size.height {
-
       bottomSheetViewBottomSpace.constant = 0.0
     }
     else {
@@ -409,15 +408,15 @@ enum ModelType: CaseIterable {
   var title: String {
     switch self {
     case .efficientnetLite0:
-      return "EfficientDet-Lite0"
+      return "EfficientNet-Lite0"
     case .efficientnetLite1:
-      return "EfficientDet-Lite1"
+      return "EfficientNet-Lite1"
     case .efficientnetLite2:
-      return "EfficientDet-Lite2"
+      return "EfficientNet-Lite2"
     case .efficientnetLite3:
-      return "EfficientDet-Lite3"
+      return "EfficientNet-Lite3"
     case .efficientnetLite4:
-      return "EfficientDet-Lite4"
+      return "EfficientNet-Lite4"
     }
   }
 }

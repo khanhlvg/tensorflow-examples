@@ -71,8 +71,8 @@ class InferenceViewController: UIViewController {
   @IBOutlet weak var modelTextField: UITextField!
   
   // MARK: Constants
-  private let normalCellHeight: CGFloat = 27.0
-  private let separatorCellHeight: CGFloat = 42.0
+  let normalCellHeight: CGFloat = 27.0
+  let separatorCellHeight: CGFloat = 42.0
   private let bottomSpacing: CGFloat = 21.0
   private let minThreadCount = 1
   private let bottomSheetButtonDisplayHeight: CGFloat = 44.0
@@ -85,9 +85,9 @@ class InferenceViewController: UIViewController {
   var wantedInputWidth: Int = 0
   var wantedInputHeight: Int = 0
   var resolution: CGSize = CGSize.zero
-  var maxResults: Int = 3
-  var currentThreadCount: Int = 0
-  var scoreThreshold: Float = 0.3
+  var maxResults: Int = DefaultConstants.maxResults
+  var currentThreadCount: Int = DefaultConstants.threadCount
+  var scoreThreshold: Float = DefaultConstants.scoreThreshold
   var modelSelectIndex: Int = 0
   private var infoTextColor = UIColor.black
 
@@ -104,7 +104,7 @@ class InferenceViewController: UIViewController {
 
   // MARK: Computed properties
   var collapsedHeight: CGFloat {
-    return normalCellHeight * CGFloat(maxResults - 1) + separatorCellHeight + bottomSheetButtonDisplayHeight
+    return normalCellHeight * CGFloat(maxResults - 1) + bottomSheetButtonDisplayHeight
 
   }
 
@@ -119,6 +119,7 @@ class InferenceViewController: UIViewController {
     if #available(iOS 11, *) {
       infoTextColor = UIColor(named: "darkOrLight")!
     }
+    setupUI()
   }
 
   // MARK: private func
@@ -131,7 +132,7 @@ class InferenceViewController: UIViewController {
     maxResultLabel.text = "\(maxResults)"
 
     thresholdStepper.value = Double(scoreThreshold)
-    threadValueLabel.text = "\(scoreThreshold)"
+    thresholdValueLabel.text = "\(scoreThreshold)"
 
     modelTextField.text = modelSelect.title
 
@@ -211,30 +212,7 @@ extension InferenceViewController: UITableViewDelegate, UITableViewDataSource {
   }
 
   func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-
-    var height: CGFloat = 0.0
-
-    guard let inferenceSection = InferenceSections(rawValue: indexPath.section) else {
-      return height
-    }
-
-    switch inferenceSection {
-    case .Results:
-      if indexPath.row == maxResults - 1 {
-        height = separatorCellHeight + bottomSpacing
-      }
-      else {
-        height = normalCellHeight
-      }
-    case .InferenceInfo:
-      if indexPath.row == InferenceInfo.allCases.count - 1 {
-        height = separatorCellHeight + bottomSpacing
-      }
-      else {
-        height = normalCellHeight
-      }
-    }
-    return height
+    return normalCellHeight
   }
 
   func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {

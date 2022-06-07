@@ -17,11 +17,11 @@
 set -ex
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EFFICIENTNET_LITE0_URL="https://tfhub.dev/tensorflow/efficientnet/lite0/classification/2?tf-hub-format=compressed"
-EFFICIENTNET_LITE1_URL="https://tfhub.dev/tensorflow/efficientnet/lite1/classification/2?tf-hub-format=compressed"
-EFFICIENTNET_LITE2_URL="https://tfhub.dev/tensorflow/efficientnet/lite2/classification/2?tf-hub-format=compressed"
-EFFICIENTNET_LITE3_URL="https://tfhub.dev/tensorflow/efficientnet/lite3/classification/2?tf-hub-format=compressed"
-EFFICIENTNET_LITE4_URL="https://tfhub.dev/tensorflow/efficientnet/lite4/classification/2?tf-hub-format=compressed"
+EFFICIENTNET_LITE0_URL="https://tfhub.dev/tensorflow/lite-model/efficientnet/lite0/uint8/2?lite-format=tflite"
+EFFICIENTNET_LITE1_URL="https://tfhub.dev/tensorflow/lite-model/efficientnet/lite1/uint8/2?lite-format=tflite"
+EFFICIENTNET_LITE2_URL="https://tfhub.dev/tensorflow/lite-model/efficientnet/lite2/uint8/2?lite-format=tflite"
+EFFICIENTNET_LITE3_URL="https://tfhub.dev/tensorflow/lite-model/efficientnet/lite3/uint8/2?lite-format=tflite"
+EFFICIENTNET_LITE4_URL="https://tfhub.dev/tensorflow/lite-model/efficientnet/lite4/uint8/2?lite-format=tflite"
 
 EFFICIENTNET_LITE0_NAME="efficientnet_lite0.tflite"
 EFFICIENTNET_LITE1_NAME="efficientnet_lite1.tflite"

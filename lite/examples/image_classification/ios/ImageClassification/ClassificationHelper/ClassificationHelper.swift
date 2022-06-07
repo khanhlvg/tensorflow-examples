@@ -24,12 +24,6 @@ struct Result {
 /// Information about a model file or labels file.
 typealias FileInfo = (name: String, extension: String)
 
-/// Information about the MobileNet model.
-enum MobileNet {
-  static let modelInfo: FileInfo = (name: "mobilenet_quant_v1_224", extension: "tflite")
-  static let labelsInfo: FileInfo = (name: "labels", extension: "txt")
-}
-
 /// This class handles all data preprocessing and makes calls to run inference on a given frame
 /// by invoking the `Interpreter`. It then formats the inferences obtained and returns the top N
 /// results for a successful inference.
@@ -59,9 +53,9 @@ class ClassificationHelper {
     }
     let options = ImageClassifierOptions(modelPath: modelPath)
     // Configure any classification options:
-    options.classificationOptions.maxResults = resultCount
-    options.classificationOptions.scoreThreshold = scoreThreshold
-    options.baseOptions.computeSettings.cpuSettings.numThreads = Int32(threadCount)
+//    options.classificationOptions.maxResults = resultCount
+//    options.classificationOptions.scoreThreshold = scoreThreshold
+//    options.baseOptions.computeSettings.cpuSettings.numThreads = Int32(threadCount)
     do {
       classifier = try ImageClassifier.imageClassifier(options: options)
     } catch let error {
