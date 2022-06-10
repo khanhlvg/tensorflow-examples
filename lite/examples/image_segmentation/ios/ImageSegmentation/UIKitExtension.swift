@@ -40,7 +40,7 @@ extension UIImage {
     return croppedImage
   }
 
-  /// Overlay an image on top of current image with alpha component
+  /// Overlay an image on top of current image with alpha component.
   /// - Parameters
   ///   - alpha: Alpha component of the image to be drawn on the top of current image
   /// - Returns: The overlayed image or `nil` if the image could not be drawn.
@@ -54,6 +54,39 @@ extension UIImage {
     UIGraphicsEndImageContext()
 
     return newImage
+  }
+  
+  /// Create an UIImage from the given pixel array.
+  /// - Parameters
+  ///   - pixels: The pixel array to create an image from.
+  ///   - width: The target image's width.
+  ///   - height: The target image's height.
+  /// - Returns: The overlayed image or `nil` if the image could not be drawn.
+  static func fromSRGBColorArray(pixels: [UInt32], size: CGSize) -> UIImage?
+  {
+    guard size.width > 0 && size.height > 0 else { return nil }
+    guard pixels.count == Int(size.width * size.height) else { return nil }
+
+    // Make a mutable copy
+    var data = pixels
+
+    // Convert array of pixels to a CGImage instance.
+    let cgImage = data.withUnsafeMutableBytes { (ptr) -> CGImage in
+      let ctx = CGContext(
+        data: ptr.baseAddress,
+        width: Int(size.width),
+        height: Int(size.height),
+        bitsPerComponent: 8,
+        bytesPerRow: MemoryLayout<UInt32>.size * Int(size.width),
+        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+        bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue
+        + CGImageAlphaInfo.premultipliedFirst.rawValue
+      )!
+      return ctx.makeImage()!
+    }
+
+    // Convert the CGImage instance to an UIImage instance.
+    return UIImage(cgImage: cgImage)
   }
 }
 

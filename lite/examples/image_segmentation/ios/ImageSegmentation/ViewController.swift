@@ -20,7 +20,7 @@ class ViewController: UIViewController {
   private var imagePicker = UIImagePickerController()
 
   /// Image segmentator instance that runs image segmentation.
-  private var imageSegmentator: ImageSegmentator?
+  private var imageSegmentationHelper: ImageSegmentationHelper?
 
   /// Target image to run image segmentation on.
   private var targetImage: UIImage?
@@ -55,11 +55,11 @@ class ViewController: UIViewController {
     }
 
     // Initialize an image segmentator instance.
-    ImageSegmentator.newInstance { result in
+    ImageSegmentationHelper.newInstance { result in
       switch result {
       case let .success(segmentator):
         // Store the initialized instance for use.
-        self.imageSegmentator = segmentator
+        self.imageSegmentationHelper = segmentator
 
         // Run image segmentation on a demo image.
         self.showDemoSegmentation()
@@ -133,7 +133,7 @@ extension ViewController {
     }
 
     // Make sure that image segmentator is initialized.
-    guard let imageSegmentator = imageSegmentator else {
+    guard let imageSegmentator = imageSegmentationHelper else {
       inferenceStatusLabel.text = "ERROR: Image Segmentator is not ready."
       return
     }
@@ -207,8 +207,7 @@ extension ViewController {
 
   /// Show segmentation latency on screen.
   private func showInferenceTime(_ segmentationResult: ImageSegmentationResult) {
-    let timeString = "Preprocessing: \(Int(segmentationResult.preprocessingTime * 1000))ms.\n"
-      + "Model inference: \(Int(segmentationResult.inferenceTime * 1000))ms.\n"
+    let timeString = "Model inference: \(Int(segmentationResult.inferenceTime * 1000))ms.\n"
       + "Postprocessing: \(Int(segmentationResult.postProcessingTime * 1000))ms.\n"
       + "Visualization: \(Int(segmentationResult.visualizationTime * 1000))ms.\n"
 

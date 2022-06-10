@@ -15,7 +15,7 @@
 import TensorFlowLiteTaskVision
 import UIKit
 
-class ImageSegmentator {
+class ImageSegmentationHelper {
 
   /// TensorFlow Lite `Interpreter` object for performing inference on a given model.
   private var segmenter: ImageSegmenter
@@ -25,30 +25,8 @@ class ImageSegmentator {
 
   // MARK: - Initialization
 
-  /// Load label list from file.
-  private static func loadLabelList() -> [String]? {
-    guard
-      let labelListPath = Bundle.main.path(
-        forResource: Constants.labelsFileName,
-        ofType: Constants.labelsFileExtension
-      )
-    else {
-      return nil
-    }
-
-    // Parse label list file as JSON.
-    do {
-      let data = try Data(contentsOf: URL(fileURLWithPath: labelListPath), options: .mappedIfSafe)
-      let jsonResult = try JSONSerialization.jsonObject(with: data, options: .mutableLeaves)
-      if let labelList = jsonResult as? [String] { return labelList } else { return nil }
-    } catch {
-      print("Error parsing label list file as JSON.")
-      return nil
-    }
-  }
-
   /// Create a new Image Segmentator instance.
-  static func newInstance(completion: @escaping ((Result<ImageSegmentator>) -> Void)) {
+  static func newInstance(completion: @escaping ((Result<ImageSegmentationHelper>) -> Void)) {
     // Create a dispatch queue to ensure all operations on the Intepreter will run serially.
     let tfLiteQueue = DispatchQueue(label: "org.tensorflow.examples.lite.image_segmentation")
 
@@ -74,33 +52,16 @@ class ImageSegmentator {
         return
       }
 
-      // Construct the path to the label list file.
-      guard let labelList = loadLabelList() else {
-        print(
-          "Failed to load the label list file with name: "
-          + "\(Constants.labelsFileName).\(Constants.labelsFileExtension)"
-        )
-        DispatchQueue.main.async {
-          completion(
-            .error(
-              InitializationError.invalidLabelList(
-                "\(Constants.labelsFileName).\(Constants.labelsFileExtension)"
-              )))
-        }
-        return
-      }
-
       // Specify the options for the `ImageSegmenter`.
       let options = ImageSegmenterOptions(modelPath: modelPath)
 
       do {
-        let segmenter = try ImageSegmenter.imageSegmenter(options: options)
+        let segmenter = try ImageSegmenter.segmenter(options: options)
 
         // Create an ImageSegmentator instance and return.
-        let segmentator = ImageSegmentator(
+        let segmentator = ImageSegmentationHelper(
           tfLiteQueue: tfLiteQueue,
-          segmenter: segmenter,
-          labelList: labelList
+          segmenter: segmenter
         )
         DispatchQueue.main.async {
           completion(.success(segmentator))
@@ -118,8 +79,7 @@ class ImageSegmentator {
   /// Initialize Image Segmentator instance.
   fileprivate init(
     tfLiteQueue: DispatchQueue,
-    segmenter: ImageSegmenter,
-    labelList: [String]
+    segmenter: ImageSegmenter
   ) {
     // Store TF Lite intepreter
     self.segmenter = segmenter
@@ -138,8 +98,8 @@ class ImageSegmentator {
   ) {
     tfLiteQueue.async {
       let segmentationResult: SegmentationResult
-      var startTime: Date = Date()
-      var preprocessingTime: TimeInterval = 0
+      var startTime = Date()
+      var now = Date()
       var inferenceTime: TimeInterval = 0
       var postprocessingTime: TimeInterval = 0
       var visualizationTime: TimeInterval = 0
@@ -148,14 +108,12 @@ class ImageSegmentator {
         // Preprocessing: Convert the input UIImage to MLImage.
         startTime = Date()
         guard let mlImage = MLImage(image: image) else { return }
-        var now = Date()
-        preprocessingTime = now.timeIntervalSince(startTime)
-
-        startTime = Date()
+        
         // Segmentation
-        segmentationResult = try self.segmenter.segment(gmlImage: mlImage)
-        now = Date()
+        segmentationResult = try self.segmenter.segment(mlImage: mlImage)
+        
         // Calculate segmentation time.
+        now = Date()
         inferenceTime = now.timeIntervalSince(startTime)
       } catch let error {
         print("Failed to invoke the interpreter with error: \(error.localizedDescription)")
@@ -164,27 +122,27 @@ class ImageSegmentator {
         }
         return
       }
-      startTime = Date()
 
       /// Postprocessing: Convert `SegmentationResult` to the segmentation mask and color for each pixel.
-      guard let parsedOutput = self.parseOutput(segmentationResult: segmentationResult) else { return }
+      startTime = Date()
+      guard let parsedOutput = self.parseOutput(segmentationResult: segmentationResult) else {
+        print("Failed to parse model output.")
+        DispatchQueue.main.async {
+          completion(.error(SegmentationError.postProcessingError))
+        }
+        return
+      }
 
       // Calculate postprocessing time.
       // Note: You may find postprocessing very slow if you run the sample app with Debug build.
       // You will see significant speed up if you rerun using Release build, or change
       // Optimization Level in the project's Build Settings to the same value with Release build.
-      var now = Date()
       postprocessingTime = now.timeIntervalSince(startTime)
 
-      startTime = Date()
       // Visualize result into images.
+      startTime = Date()
       guard
-        let resultImage = ImageSegmentator.imageFromSRGBColorArray(
-          pixels: parsedOutput.segmentationImagePixels,
-          width: Int(parsedOutput.outputImageSize.width),
-          height: Int(parsedOutput.outputImageSize.height)
-        ),
-        let overlayImage = image.overlayWithImage(image: resultImage, alpha: 0.5)
+        let overlayImage = image.overlayWithImage(image: parsedOutput.resultImage, alpha: 0.5)
       else {
         print("Failed to visualize segmentation result.")
         DispatchQueue.main.async {
@@ -199,14 +157,12 @@ class ImageSegmentator {
 
       // Create a representative object that contains the segmentation result.
       let result = ImageSegmentationResult(
-        array: parsedOutput.segmentationMaps,
-        resultImage: resultImage,
+        resultImage: parsedOutput.resultImage,
         overlayImage: overlayImage,
-        preprocessingTime: preprocessingTime,
         inferenceTime: inferenceTime,
         postProcessingTime: postprocessingTime,
         visualizationTime: visualizationTime,
-        colorLegend: parsedOutput.classColors
+        colorLegend: parsedOutput.colorLegend
       )
 
       // Return the segmentation result.
@@ -225,57 +181,38 @@ class ImageSegmentator {
           let categoryMask = segmentation.categoryMask else { return nil }
     let mask = categoryMask.mask
     let results = [UInt8](UnsafeMutableBufferPointer(start: mask, count: categoryMask.width * categoryMask.height))
-    let classList = Array(Set(results))
-    let classLables = classList.map({ segmentation.coloredLabels[Int($0)].label })
-    let classColors: [UIColor] = classList.map({
-      let colorLabel = segmentation.coloredLabels[Int($0)]
-      return UIColor(red: CGFloat(colorLabel.r)/255.0,
-              green: CGFloat(colorLabel.g)/255.0,
-              blue: CGFloat(colorLabel.b)/255.0,
-              alpha: 0.5)
+    
+    // Create a visualization of the segmentation image.
+    let alphaChannel: UInt32 = 255
+    let classColorsUInt32: [UInt32] = segmentation.coloredLabels.map({
+      let colorAsUInt = alphaChannel << 24 + // alpha channel
+                         UInt32($0.r) << 16 +
+                         UInt32($0.g) << 8 +
+                         UInt32($0.b)
+      return colorAsUInt
     })
-    // Construct a dictionary of classes found in the image and each class's color used in
-    // visualization.
-    let classLabelColors = [String: UIColor](uniqueKeysWithValues: zip(classLables, classColors))
-    let segmentationImagePixels: [UInt32] = results.map({UInt32(Constants.legendColorList[Int($0)])})
-    let twoDimArray = [[UInt8]](repeating: [UInt8](repeating: 0, count: categoryMask.width), count: categoryMask.height)
-    var iter = results.makeIterator()
-    let newResults: [[UInt8]] = twoDimArray.map { $0.compactMap { _ in iter.next() } }
+    let segmentationImagePixels: [UInt32] = results.map({ classColorsUInt32[Int($0)] })
+    guard let resultImage = UIImage.fromSRGBColorArray(
+      pixels: segmentationImagePixels,
+      size: CGSize(width: categoryMask.width, height: categoryMask.height)
+    ) else { return nil }
+    
+    // Calculate the list of classes found in the image and its visualization color.
+    let classList = IndexSet(Set(results).map({ Int($0) }))
+    let filteredColorLabels = classList.map({ segmentation.coloredLabels[$0] })
+    let colorLegend = Dictionary<String, UIColor>(uniqueKeysWithValues: filteredColorLabels.map {
+      colorLabel in
+      let color = UIColor(red: CGFloat(colorLabel.r) / 255.0,
+                    green: CGFloat(colorLabel.g) / 255.0,
+                    blue: CGFloat(colorLabel.b) / 255.0,
+                    alpha: CGFloat(alphaChannel) / 255.0)
+      return (colorLabel.label, color)
+    })
+    
     return ImageSegmentationParseData(
-      segmentationMaps: newResults,
-      segmentationImagePixels: segmentationImagePixels,
-      classColors: classLabelColors,
+      resultImage: resultImage,
+      colorLegend: colorLegend,
       outputImageSize: CGSize(width: categoryMask.width, height: categoryMask.height))
-  }
-
-  // MARK: - Utils
-
-  /// Construct an UIImage from a list of sRGB pixels.
-  private static func imageFromSRGBColorArray(pixels: [UInt32], width: Int, height: Int) -> UIImage?
-  {
-    guard width > 0 && height > 0 else { return nil }
-    guard pixels.count == width * height else { return nil }
-
-    // Make a mutable copy
-    var data = pixels
-
-    // Convert array of pixels to a CGImage instance.
-    let cgImage = data.withUnsafeMutableBytes { (ptr) -> CGImage in
-      let ctx = CGContext(
-        data: ptr.baseAddress,
-        width: width,
-        height: height,
-        bitsPerComponent: 8,
-        bytesPerRow: MemoryLayout<UInt32>.size * width,
-        space: CGColorSpace(name: CGColorSpace.sRGB)!,
-        bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue
-        + CGImageAlphaInfo.premultipliedFirst.rawValue
-      )!
-      return ctx.makeImage()!
-    }
-
-    // Convert the CGImage instance to an UIImage instance.
-    return UIImage(cgImage: cgImage)
   }
 }
 
@@ -283,10 +220,6 @@ class ImageSegmentator {
 
 /// Representation of the image segmentation result.
 struct ImageSegmentationResult {
-  /// Segmentation result as an array. Each value represents the most likely class the pixel
-  /// belongs to.
-  let array: [[UInt8]]
-
   /// Visualization of the segmentation result.
   let resultImage: UIImage
 
@@ -294,7 +227,6 @@ struct ImageSegmentationResult {
   let overlayImage: UIImage
 
   /// Processing time.
-  let preprocessingTime: TimeInterval
   let inferenceTime: TimeInterval
   let postProcessingTime: TimeInterval
   let visualizationTime: TimeInterval
@@ -306,13 +238,14 @@ struct ImageSegmentationResult {
 
 /// ParseData of the image segmentation result.
 struct ImageSegmentationParseData {
-  // Masks of secmentation result
-  let segmentationMaps: [[UInt8]]
-  // Legend Color for each pixel
-  let segmentationImagePixels: [UInt32]
-  // All class indexs of segmentation result
-  let classColors: [String: UIColor]
-  // Model output image size
+  /// Legend color for each pixel
+  let resultImage: UIImage
+  
+  /// Dictionary of classes found in the image, and the color used to represent the class in
+  /// segmentation result visualization.
+  let colorLegend: [String: UIColor]
+  
+  /// Model output image size
   let outputImageSize: CGSize
 }
 
@@ -341,6 +274,9 @@ enum SegmentationError: Error {
 
   // TF Lite Internal Error when initializing
   case internalError(Error)
+  
+  // Error when processing the TFLite model output
+  case postProcessingError
 
   // Invalid input image
   case resultVisualizationError
@@ -355,29 +291,4 @@ private enum Constants {
   /// The TF Lite segmentation model file
   static let modelFileName = "deeplabv3"
   static let modelFileExtension = "tflite"
-
-  /// List of colors to visualize segmentation result.
-  static let legendColorList: [UInt32] = [
-    0xFFFF_B300, // Vivid Yellow
-    0xFF80_3E75, // Strong Purple
-    0xFFFF_6800, // Vivid Orange
-    0xFFA6_BDD7, // Very Light Blue
-    0xFFC1_0020, // Vivid Red
-    0xFFCE_A262, // Grayish Yellow
-    0xFF81_7066, // Medium Gray
-    0xFF00_7D34, // Vivid Green
-    0xFFF6_768E, // Strong Purplish Pink
-    0xFF00_538A, // Strong Blue
-    0xFFFF_7A5C, // Strong Yellowish Pink
-    0xFF53_377A, // Strong Violet
-    0xFFFF_8E00, // Vivid Orange Yellow
-    0xFFB3_2851, // Strong Purplish Red
-    0xFFF4_C800, // Vivid Greenish Yellow
-    0xFF7F_180D, // Strong Reddish Brown
-    0xFF93_AA00, // Vivid Yellowish Green
-    0xFF59_3315, // Deep Yellowish Brown
-    0xFFF1_3A13, // Vivid Reddish Orange
-    0xFF23_2C16, // Dark Olive Green
-    0xFF00_A1C2, // Vivid Blue
-  ]
 }
