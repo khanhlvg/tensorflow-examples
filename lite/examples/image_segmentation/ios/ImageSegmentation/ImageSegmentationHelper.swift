@@ -97,72 +97,63 @@ class ImageSegmentationHelper {
     _ image: UIImage, completion: @escaping ((Result<ImageSegmentationResult>) -> Void)
   ) {
     tfLiteQueue.async {
+      [weak self] in guard let `self` = self else {
+        print("The app is in an invalid state.")
+        DispatchQueue.main.async {
+          completion(.error(SegmentationError.invalidState))
+        }
+        return
+      }
       let segmentationResult: SegmentationResult
-      var startTime = Date()
-      var now = Date()
       var inferenceTime: TimeInterval = 0
       var postprocessingTime: TimeInterval = 0
-      var visualizationTime: TimeInterval = 0
 
       do {
         // Preprocessing: Convert the input UIImage to MLImage.
-        startTime = Date()
-        guard let mlImage = MLImage(image: image) else { return }
+        let startTime = Date()
+        guard let mlImage = MLImage(image: image) else {
+          print("The input image is invalid.")
+          DispatchQueue.main.async {
+            completion(.error(SegmentationError.invalidImage))
+          }
+          return
+        }
         
-        // Segmentation
+        // Run segmentation
         segmentationResult = try self.segmenter.segment(mlImage: mlImage)
         
         // Calculate segmentation time.
-        now = Date()
-        inferenceTime = now.timeIntervalSince(startTime)
+        inferenceTime = Date().timeIntervalSince(startTime)
       } catch let error {
-        print("Failed to invoke the interpreter with error: \(error.localizedDescription)")
+        print("Failed to invoke TFLite with error: \(error.localizedDescription)")
         DispatchQueue.main.async {
           completion(.error(SegmentationError.internalError(error)))
         }
         return
       }
 
-      /// Postprocessing: Convert `SegmentationResult` to the segmentation mask and color for each pixel.
-      startTime = Date()
-      guard let parsedOutput = self.parseOutput(segmentationResult: segmentationResult) else {
+      /// Postprocessing: Visualize the `SegmentationResult` object.
+      let startTime = Date()
+      guard let (resultImage, colorLegend) = self.parseOutput(
+        segmentationResult: segmentationResult) else {
         print("Failed to parse model output.")
         DispatchQueue.main.async {
           completion(.error(SegmentationError.postProcessingError))
         }
         return
       }
-
       // Calculate postprocessing time.
-      // Note: You may find postprocessing very slow if you run the sample app with Debug build.
-      // You will see significant speed up if you rerun using Release build, or change
-      // Optimization Level in the project's Build Settings to the same value with Release build.
-      postprocessingTime = now.timeIntervalSince(startTime)
-
-      // Visualize result into images.
-      startTime = Date()
-      guard
-        let overlayImage = image.overlayWithImage(image: parsedOutput.resultImage, alpha: 0.5)
-      else {
-        print("Failed to visualize segmentation result.")
-        DispatchQueue.main.async {
-          completion(.error(SegmentationError.resultVisualizationError))
-        }
-        return
-      }
-
-      // Calculate visualization time.
-      now = Date()
-      visualizationTime = now.timeIntervalSince(startTime)
+      // Note: You may find postprocessing slow when running the sample app with the Debug build.
+      // You will see significant speed up if you switch to using Release build, or change
+      // Optimization Level in the project's Build Settings to the same value as the Release build.
+      postprocessingTime = Date().timeIntervalSince(startTime)
 
       // Create a representative object that contains the segmentation result.
       let result = ImageSegmentationResult(
-        resultImage: parsedOutput.resultImage,
-        overlayImage: overlayImage,
+        resultImage: resultImage,
+        colorLegend: colorLegend,
         inferenceTime: inferenceTime,
-        postProcessingTime: postprocessingTime,
-        visualizationTime: visualizationTime,
-        colorLegend: parsedOutput.colorLegend
+        postProcessingTime: postprocessingTime
       )
 
       // Return the segmentation result.
@@ -176,20 +167,21 @@ class ImageSegmentationHelper {
 
   /// Run segmentation map and color  for each pixel, if can't get `categoryMask` -> return nil.
   /// - Parameter segmentationResult: The result received from image secmentation process
-  private func parseOutput(segmentationResult: SegmentationResult) -> ImageSegmentationParseData? {
+  private func parseOutput(segmentationResult: SegmentationResult) -> (UIImage, [String: UIColor])? {
     guard let segmentation = segmentationResult.segmentations.first,
           let categoryMask = segmentation.categoryMask else { return nil }
     let mask = categoryMask.mask
-    let results = [UInt8](UnsafeMutableBufferPointer(start: mask, count: categoryMask.width * categoryMask.height))
+    let results = [UInt8](UnsafeMutableBufferPointer(start: mask,
+                                                     count: categoryMask.width * categoryMask.height))
     
     // Create a visualization of the segmentation image.
     let alphaChannel: UInt32 = 255
     let classColorsUInt32: [UInt32] = segmentation.coloredLabels.map({
-      let colorAsUInt = alphaChannel << 24 + // alpha channel
+      let colorAsUInt32 = alphaChannel << 24 + // alpha channel
                          UInt32($0.r) << 16 +
                          UInt32($0.g) << 8 +
                          UInt32($0.b)
-      return colorAsUInt
+      return colorAsUInt32
     })
     let segmentationImagePixels: [UInt32] = results.map({ classColorsUInt32[Int($0)] })
     guard let resultImage = UIImage.fromSRGBColorArray(
@@ -198,8 +190,8 @@ class ImageSegmentationHelper {
     ) else { return nil }
     
     // Calculate the list of classes found in the image and its visualization color.
-    let classList = IndexSet(Set(results).map({ Int($0) }))
-    let filteredColorLabels = classList.map({ segmentation.coloredLabels[$0] })
+    let classFoundInImageList = IndexSet(Set(results).map({ Int($0) }))
+    let filteredColorLabels = classFoundInImageList.map({ segmentation.coloredLabels[$0] })
     let colorLegend = Dictionary<String, UIColor>(uniqueKeysWithValues: filteredColorLabels.map {
       colorLabel in
       let color = UIColor(red: CGFloat(colorLabel.r) / 255.0,
@@ -209,10 +201,7 @@ class ImageSegmentationHelper {
       return (colorLabel.label, color)
     })
     
-    return ImageSegmentationParseData(
-      resultImage: resultImage,
-      colorLegend: colorLegend,
-      outputImageSize: CGSize(width: categoryMask.width, height: categoryMask.height))
+    return (resultImage, colorLegend)
   }
 }
 
@@ -222,31 +211,14 @@ class ImageSegmentationHelper {
 struct ImageSegmentationResult {
   /// Visualization of the segmentation result.
   let resultImage: UIImage
-
-  /// Overlay the segmentation result on input image.
-  let overlayImage: UIImage
+  
+  /// Dictionary of classes found in the image, and the color used to represent the class in
+  /// the segmentation result visualization.
+  let colorLegend: [String: UIColor]
 
   /// Processing time.
   let inferenceTime: TimeInterval
   let postProcessingTime: TimeInterval
-  let visualizationTime: TimeInterval
-
-  /// Dictionary of classes found in the image, and the color used to represent the class in
-  /// segmentation result visualization.
-  let colorLegend: [String: UIColor]
-}
-
-/// ParseData of the image segmentation result.
-struct ImageSegmentationParseData {
-  /// Legend color for each pixel
-  let resultImage: UIImage
-  
-  /// Dictionary of classes found in the image, and the color used to represent the class in
-  /// segmentation result visualization.
-  let colorLegend: [String: UIColor]
-  
-  /// Model output image size
-  let outputImageSize: CGSize
 }
 
 /// Convenient enum to return result with a callback
@@ -260,34 +232,30 @@ enum InitializationError: Error {
   // Invalid TF Lite model
   case invalidModel(String)
 
-  // Invalid label list
-  case invalidLabelList(String)
-
-  // TF Lite Internal Error when initializing
+  // TF Lite internal Error when initializing
   case internalError(Error)
 }
 
 /// Define errors that could happen in when doing image segmentation
 enum SegmentationError: Error {
+  // The app is in an invalid state
+  case invalidState
+  
   // Invalid input image
   case invalidImage
 
-  // TF Lite Internal Error when initializing
+  // TF Lite internal Error when running inference
   case internalError(Error)
   
   // Error when processing the TFLite model output
   case postProcessingError
 
-  // Invalid input image
+  // Error when visualizing the segmentation result
   case resultVisualizationError
 }
 
 // MARK: - Constants
 private enum Constants {
-  /// Label list that the segmentation model detects.
-  static let labelsFileName = "deeplabv3_labels"
-  static let labelsFileExtension = "json"
-
   /// The TF Lite segmentation model file
   static let modelFileName = "deeplabv3"
   static let modelFileExtension = "tflite"

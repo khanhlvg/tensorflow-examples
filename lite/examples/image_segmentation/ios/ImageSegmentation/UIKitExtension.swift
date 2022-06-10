@@ -39,22 +39,6 @@ extension UIImage {
 
     return croppedImage
   }
-
-  /// Overlay an image on top of current image with alpha component.
-  /// - Parameters
-  ///   - alpha: Alpha component of the image to be drawn on the top of current image
-  /// - Returns: The overlayed image or `nil` if the image could not be drawn.
-  func overlayWithImage(image: UIImage, alpha: Float) -> UIImage? {
-    let areaSize = CGRect(x: 0, y: 0, width: self.size.width, height: self.size.height)
-
-    UIGraphicsBeginImageContext(self.size)
-    self.draw(in: areaSize)
-    image.draw(in: areaSize, blendMode: .normal, alpha: CGFloat(alpha))
-    let newImage: UIImage? = UIGraphicsGetImageFromCurrentImageContext()
-    UIGraphicsEndImageContext()
-
-    return newImage
-  }
   
   /// Create an UIImage from the given pixel array.
   /// - Parameters

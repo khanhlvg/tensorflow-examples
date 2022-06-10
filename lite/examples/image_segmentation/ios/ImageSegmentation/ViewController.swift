@@ -32,8 +32,9 @@ class ViewController: UIViewController {
   private var segmentationResult: ImageSegmentationResult?
 
   /// UI elements
-  @IBOutlet weak var imageView: UIImageView!
-
+  @IBOutlet weak var inputImageView: UIImageView!
+  @IBOutlet weak var resultImageView: UIImageView!
+  
   @IBOutlet weak var photoCameraButton: UIButton!
   @IBOutlet weak var segmentedControl: UISegmentedControl!
   @IBOutlet weak var cropSwitch: UISwitch!
@@ -93,13 +94,18 @@ class ViewController: UIViewController {
     switch segmentedControl.selectedSegmentIndex {
     case 0:
       // Mode 0: Show input image
-      imageView.image = segmentationInput
+      inputImageView.isHidden = false
+      resultImageView.isHidden = true
     case 1:
       // Mode 1: Show visualization of segmentation result.
-      imageView.image = segmentationResult?.resultImage
+      inputImageView.isHidden = true
+      resultImageView.isHidden = false
+      resultImageView.alpha = 1.0
     case 2:
       // Mode 2; Show overlay of segmentation result on input image.
-      imageView.image = segmentationResult?.overlayImage
+      inputImageView.isHidden = false
+      resultImageView.isHidden = false
+      resultImageView.alpha = 0.5
     default:
       break
     }
@@ -149,7 +155,7 @@ extension ViewController {
     segmentationInput = image
 
     // Show the potentially cropped image on screen.
-    imageView.image = image
+    inputImageView.image = image
 
     // Make sure that the image is ready before running segmentation.
     guard let image = image else {
@@ -179,6 +185,9 @@ extension ViewController {
           // Show result metadata
           self.showInferenceTime(segmentationResult)
           self.showClassLegend(segmentationResult)
+          
+          // Show segmentation result
+          self.resultImageView.image = segmentationResult.resultImage
 
           // Enable switching between different display mode: input, segmentation, overlay
           self.segmentedControl.isEnabled = true
@@ -209,7 +218,6 @@ extension ViewController {
   private func showInferenceTime(_ segmentationResult: ImageSegmentationResult) {
     let timeString = "Model inference: \(Int(segmentationResult.inferenceTime * 1000))ms.\n"
       + "Postprocessing: \(Int(segmentationResult.postProcessingTime * 1000))ms.\n"
-      + "Visualization: \(Int(segmentationResult.visualizationTime * 1000))ms.\n"
 
     inferenceStatusLabel.text = timeString
   }
