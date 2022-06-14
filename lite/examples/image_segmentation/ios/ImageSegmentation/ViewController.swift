@@ -34,7 +34,7 @@ class ViewController: UIViewController {
   /// UI elements
   @IBOutlet weak var inputImageView: UIImageView!
   @IBOutlet weak var resultImageView: UIImageView!
-  
+
   @IBOutlet weak var photoCameraButton: UIButton!
   @IBOutlet weak var segmentedControl: UISegmentedControl!
   @IBOutlet weak var cropSwitch: UISwitch!
@@ -49,7 +49,8 @@ class ViewController: UIViewController {
     imagePicker.sourceType = .photoLibrary
 
     // Enable camera option only if current device has camera.
-    let isCameraAvailable = UIImagePickerController.isCameraDeviceAvailable(.front)
+    let isCameraAvailable =
+      UIImagePickerController.isCameraDeviceAvailable(.front)
       || UIImagePickerController.isCameraDeviceAvailable(.rear)
     if isCameraAvailable {
       photoCameraButton.isEnabled = true
@@ -94,17 +95,12 @@ class ViewController: UIViewController {
     switch segmentedControl.selectedSegmentIndex {
     case 0:
       // Mode 0: Show input image
-      inputImageView.isHidden = false
-      resultImageView.isHidden = true
+      resultImageView.alpha = 0
     case 1:
       // Mode 1: Show visualization of segmentation result.
-      inputImageView.isHidden = true
-      resultImageView.isHidden = false
-      resultImageView.alpha = 1.0
+      resultImageView.alpha = 1
     case 2:
       // Mode 2; Show overlay of segmentation result on input image.
-      inputImageView.isHidden = false
-      resultImageView.isHidden = false
       resultImageView.alpha = 0.5
     default:
       break
@@ -137,6 +133,9 @@ extension ViewController {
       inferenceStatusLabel.text = "ERROR: Image orientation couldn't be fixed."
       return
     }
+    
+    // Cache the target image.
+    self.targetImage = targetImage
 
     // Make sure that image segmentator is initialized.
     guard let imageSegmentator = imageSegmentationHelper else {
@@ -144,31 +143,25 @@ extension ViewController {
       return
     }
 
-    // Cache the target image.
-    self.targetImage = image
-
     // Center-crop the target image if the user has enabled the option.
     let willCenterCrop = cropSwitch.isOn
-    let image = willCenterCrop ? targetImage.cropCenter() : targetImage
-
-    // Cache the potentially cropped image as input to the segmentation model.
-    segmentationInput = image
-
-    // Show the potentially cropped image on screen.
-    inputImageView.image = image
-
-    // Make sure that the image is ready before running segmentation.
-    guard let image = image else {
+    guard let inputImage = willCenterCrop ? targetImage.cropCenter() : targetImage else {
       inferenceStatusLabel.text = "ERROR: Image could not be cropped."
       return
     }
+
+    // Cache the potentially cropped image as input to the segmentation model.
+    segmentationInput = inputImage
+
+    // Show the potentially cropped image on screen.
+    inputImageView.image = inputImage
 
     // Lock the crop switch while segmentation is running.
     cropSwitch.isEnabled = false
 
     // Run image segmentation.
     imageSegmentator.runSegmentation(
-      image,
+      inputImage,
       completion: { result in
         // Unlock the crop switch
         self.cropSwitch.isEnabled = true
@@ -185,7 +178,7 @@ extension ViewController {
           // Show result metadata
           self.showInferenceTime(segmentationResult)
           self.showClassLegend(segmentationResult)
-          
+
           // Show segmentation result
           self.resultImageView.image = segmentationResult.resultImage
 
@@ -216,7 +209,8 @@ extension ViewController {
 
   /// Show segmentation latency on screen.
   private func showInferenceTime(_ segmentationResult: ImageSegmentationResult) {
-    let timeString = "Model inference: \(Int(segmentationResult.inferenceTime * 1000))ms.\n"
+    let timeString =
+      "Model inference: \(Int(segmentationResult.inferenceTime * 1000))ms.\n"
       + "Postprocessing: \(Int(segmentationResult.postProcessingTime * 1000))ms.\n"
 
     inferenceStatusLabel.text = timeString

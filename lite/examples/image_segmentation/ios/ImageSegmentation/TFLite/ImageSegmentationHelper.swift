@@ -1,4 +1,4 @@
-// Copyright 2019 The TensorFlow Authors. All Rights Reserved.
+// Copyright 2022 The TensorFlow Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ class ImageSegmentationHelper {
 
   // MARK: - Initialization
 
-  /// Create a new Image Segmentator instance.
+  /// Create a new ImageSegmentationHelper instance.
   static func newInstance(completion: @escaping ((Result<ImageSegmentationHelper>) -> Void)) {
     // Create a dispatch queue to ensure all operations on the Intepreter will run serially.
     let tfLiteQueue = DispatchQueue(label: "org.tensorflow.examples.lite.image_segmentation")
@@ -41,7 +41,7 @@ class ImageSegmentationHelper {
       else {
         print(
           "Failed to load the model file with name: "
-          + "\(Constants.modelFileName).\(Constants.modelFileExtension)")
+            + "\(Constants.modelFileName).\(Constants.modelFileExtension)")
         DispatchQueue.main.async {
           completion(
             .error(
@@ -58,7 +58,7 @@ class ImageSegmentationHelper {
       do {
         let segmenter = try ImageSegmenter.segmenter(options: options)
 
-        // Create an ImageSegmentator instance and return.
+        // Create an ImageSegmentationHelper instance and return.
         let segmentator = ImageSegmentationHelper(
           tfLiteQueue: tfLiteQueue,
           segmenter: segmenter
@@ -97,7 +97,8 @@ class ImageSegmentationHelper {
     _ image: UIImage, completion: @escaping ((Result<ImageSegmentationResult>) -> Void)
   ) {
     tfLiteQueue.async {
-      [weak self] in guard let `self` = self else {
+      [weak self] in
+      guard let `self` = self else {
         print("The app is in an invalid state.")
         DispatchQueue.main.async {
           completion(.error(SegmentationError.invalidState))
@@ -118,10 +119,10 @@ class ImageSegmentationHelper {
           }
           return
         }
-        
+
         // Run segmentation
         segmentationResult = try self.segmenter.segment(mlImage: mlImage)
-        
+
         // Calculate segmentation time.
         inferenceTime = Date().timeIntervalSince(startTime)
       } catch let error {
@@ -134,8 +135,10 @@ class ImageSegmentationHelper {
 
       /// Postprocessing: Visualize the `SegmentationResult` object.
       let startTime = Date()
-      guard let (resultImage, colorLegend) = self.parseOutput(
-        segmentationResult: segmentationResult) else {
+      guard
+        let (resultImage, colorLegend) = self.parseOutput(
+          segmentationResult: segmentationResult)
+      else {
         print("Failed to parse model output.")
         DispatchQueue.main.async {
           completion(.error(SegmentationError.postProcessingError))
@@ -165,42 +168,49 @@ class ImageSegmentationHelper {
 
   // MARK: - Image Segmentation Parse
 
-  /// Run segmentation map and color  for each pixel, if can't get `categoryMask` -> return nil.
+  /// Run segmentation map and color for each pixel, if can't get `categoryMask` -> return nil.
   /// - Parameter segmentationResult: The result received from image secmentation process
-  private func parseOutput(segmentationResult: SegmentationResult) -> (UIImage, [String: UIColor])? {
+  private func parseOutput(segmentationResult: SegmentationResult) -> (UIImage, [String: UIColor])?
+  {
     guard let segmentation = segmentationResult.segmentations.first,
-          let categoryMask = segmentation.categoryMask else { return nil }
+      let categoryMask = segmentation.categoryMask
+    else { return nil }
     let mask = categoryMask.mask
-    let results = [UInt8](UnsafeMutableBufferPointer(start: mask,
-                                                     count: categoryMask.width * categoryMask.height))
-    
+    let results = [UInt8](
+      UnsafeMutableBufferPointer(
+        start: mask,
+        count: categoryMask.width * categoryMask.height))
+
     // Create a visualization of the segmentation image.
     let alphaChannel: UInt32 = 255
     let classColorsUInt32: [UInt32] = segmentation.coloredLabels.map({
-      let colorAsUInt32 = alphaChannel << 24 + // alpha channel
-                         UInt32($0.r) << 16 +
-                         UInt32($0.g) << 8 +
-                         UInt32($0.b)
+      let colorAsUInt32 =
+        alphaChannel << 24  // alpha channel
+        + UInt32($0.r) << 16 + UInt32($0.g) << 8 + UInt32($0.b)
       return colorAsUInt32
     })
     let segmentationImagePixels: [UInt32] = results.map({ classColorsUInt32[Int($0)] })
-    guard let resultImage = UIImage.fromSRGBColorArray(
-      pixels: segmentationImagePixels,
-      size: CGSize(width: categoryMask.width, height: categoryMask.height)
-    ) else { return nil }
-    
+    guard
+      let resultImage = UIImage.fromSRGBColorArray(
+        pixels: segmentationImagePixels,
+        size: CGSize(width: categoryMask.width, height: categoryMask.height)
+      )
+    else { return nil }
+
     // Calculate the list of classes found in the image and its visualization color.
     let classFoundInImageList = IndexSet(Set(results).map({ Int($0) }))
     let filteredColorLabels = classFoundInImageList.map({ segmentation.coloredLabels[$0] })
-    let colorLegend = Dictionary<String, UIColor>(uniqueKeysWithValues: filteredColorLabels.map {
-      colorLabel in
-      let color = UIColor(red: CGFloat(colorLabel.r) / 255.0,
-                    green: CGFloat(colorLabel.g) / 255.0,
-                    blue: CGFloat(colorLabel.b) / 255.0,
-                    alpha: CGFloat(alphaChannel) / 255.0)
-      return (colorLabel.label, color)
-    })
-    
+    let colorLegend = [String: UIColor](
+      uniqueKeysWithValues: filteredColorLabels.map {
+        colorLabel in
+        let color = UIColor(
+          red: CGFloat(colorLabel.r) / 255.0,
+          green: CGFloat(colorLabel.g) / 255.0,
+          blue: CGFloat(colorLabel.b) / 255.0,
+          alpha: CGFloat(alphaChannel) / 255.0)
+        return (colorLabel.label, color)
+      })
+
     return (resultImage, colorLegend)
   }
 }
@@ -211,7 +221,7 @@ class ImageSegmentationHelper {
 struct ImageSegmentationResult {
   /// Visualization of the segmentation result.
   let resultImage: UIImage
-  
+
   /// Dictionary of classes found in the image, and the color used to represent the class in
   /// the segmentation result visualization.
   let colorLegend: [String: UIColor]
@@ -240,13 +250,13 @@ enum InitializationError: Error {
 enum SegmentationError: Error {
   // The app is in an invalid state
   case invalidState
-  
+
   // Invalid input image
   case invalidImage
 
   // TF Lite internal Error when running inference
   case internalError(Error)
-  
+
   // Error when processing the TFLite model output
   case postProcessingError
 

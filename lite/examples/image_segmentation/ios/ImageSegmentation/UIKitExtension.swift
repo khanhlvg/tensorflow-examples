@@ -39,15 +39,14 @@ extension UIImage {
 
     return croppedImage
   }
-  
+
   /// Create an UIImage from the given pixel array.
   /// - Parameters
   ///   - pixels: The pixel array to create an image from.
   ///   - width: The target image's width.
   ///   - height: The target image's height.
-  /// - Returns: The overlayed image or `nil` if the image could not be drawn.
-  static func fromSRGBColorArray(pixels: [UInt32], size: CGSize) -> UIImage?
-  {
+  /// - Returns: The UIImage object or `nil` if the image could not be drawn.
+  static func fromSRGBColorArray(pixels: [UInt32], size: CGSize) -> UIImage? {
     guard size.width > 0 && size.height > 0 else { return nil }
     guard pixels.count == Int(size.width * size.height) else { return nil }
 
@@ -64,7 +63,7 @@ extension UIImage {
         bytesPerRow: MemoryLayout<UInt32>.size * Int(size.width),
         space: CGColorSpace(name: CGColorSpace.sRGB)!,
         bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue
-        + CGImageAlphaInfo.premultipliedFirst.rawValue
+          + CGImageAlphaInfo.premultipliedFirst.rawValue
       )!
       return ctx.makeImage()!
     }
