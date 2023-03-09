@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.9",
+    "three": "^0.149.0"
+  }
+}

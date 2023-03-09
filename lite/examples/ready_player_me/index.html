@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - animation - keyframes</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+ 	 	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+ 	 	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu"></script>		
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite/dist/tf-tflite.min.js"></script>
+
+		<style>
+			body {
+				background-color: #bfe3dd;
+				color: #000;
+			}
+
+			a {
+				color: #2983ff;
+			}
+		</style>
+	</head>
+
+	<body>
+		<video style="display: none;" class="input_video"></video>
+		<div id="container"></div>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "/node_modules/three/build/three.module.js",
+					"three/addons/": "/node_modules/three/examples/jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+			const tfliteModel = await tflite.loadTFLiteModel('/hund_face_lite_2023_01_18.f16.tflite');
+
+
+
+			const videoElement = document.getElementsByClassName('input_video')[0];
+
+			const BLENDSHAPE_LANDMARK_INDEXES = [
+				0, 1, 4, 5, 6, 7, 8, 10, 13, 14, 17, 21, 33, 37, 39,
+				40, 46, 52, 53, 54, 55, 58, 61, 63, 65, 66, 67, 70, 78, 80,
+				81, 82, 84, 87, 88, 91, 93, 95, 103, 105, 107, 109, 127, 132, 133,
+				136, 144, 145, 146, 148, 149, 150, 152, 153, 154, 155, 157, 158, 159, 160,
+				161, 162, 163, 168, 172, 173, 176, 178, 181, 185, 191, 195, 197, 234, 246,
+				249, 251, 263, 267, 269, 270, 276, 282, 283, 284, 285, 288, 291, 293, 295,
+				296, 297, 300, 308, 310, 311, 312, 314, 317, 318, 321, 323, 324, 332, 334,
+				336, 338, 356, 361, 362, 365, 373, 374, 375, 377, 378, 379, 380, 381, 382,
+				384, 385, 386, 387, 388, 389, 390, 397, 398, 400, 402, 405, 409, 415, 454,
+				466, 468, 469, 470, 471, 472, 473, 474, 475, 476, 477,
+			]
+
+			const RIG_NAMES = [
+				'_neutral',
+				'browDownLeft',
+				'browDownRight',
+				'browInnerUp',
+				'browOuterUpLeft',
+				'browOuterUpRight',
+				'cheekPuff',
+				'cheekSquintLeft',
+				'cheekSquintRight',
+				'eyeBlinkLeft',
+				'eyeBlinkRight',
+				'eyeLookDownLeft',
+				'eyeLookDownRight',
+				'eyeLookInLeft',
+				'eyeLookInRight',
+				'eyeLookOutLeft',
+				'eyeLookOutRight',
+				'eyeLookUpLeft',
+				'eyeLookUpRight',
+				'eyeSquintLeft',
+				'eyeSquintRight',
+				'eyeWideLeft',
+				'eyeWideRight',
+				'jawForward',
+				'jawLeft',
+				'jawOpen',
+				'jawRight',
+				'mouthClose',
+				'mouthDimpleLeft',
+				'mouthDimpleRight',
+				'mouthFrownLeft',
+				'mouthFrownRight',
+				'mouthFunnel',
+				'mouthLeft',
+				'mouthLowerDownLeft',
+				'mouthLowerDownRight',
+				'mouthPressLeft',
+				'mouthPressRight',
+				'mouthPucker',
+				'mouthRight',
+				'mouthRollLower',
+				'mouthRollUpper',
+				'mouthShrugLower',
+				'mouthShrugUpper',
+				'mouthSmileLeft',
+				'mouthSmileRight',
+				'mouthStretchLeft',
+				'mouthStretchRight',
+				'mouthUpperUpLeft',
+				'mouthUpperUpRight',
+				'noseSneerLeft',
+				'noseSneerRight',
+			]
+
+			let datas = Array(BLENDSHAPE_LANDMARK_INDEXES.length)
+
+			function onResults(results) {
+				const lm = results.multiFaceLandmarks[0]
+				if (!lm) { return }
+				if (lm.length == 0) { return }
+				for (let i = 0; i < BLENDSHAPE_LANDMARK_INDEXES.length; i ++) {
+					datas[i] = [lm[BLENDSHAPE_LANDMARK_INDEXES[i]].x, lm[BLENDSHAPE_LANDMARK_INDEXES[i]].y]
+				}
+				let outputTensor = tfliteModel.predict(tf.tensor([datas]));
+				const outputData = outputTensor.dataSync();
+				for (let i = 1; i < outputData.length; i ++) {
+					skinNode.morphTargetInfluences[skinNode.morphTargetDictionary[RIG_NAMES[i]]] = outputData[i]
+				}
+				renderer.render( scene, camera );
+			}
+
+			const faceMesh = new FaceMesh({locateFile: (file) => {
+				return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+			}});
+			faceMesh.setOptions({
+				maxNumFaces: 1,
+				refineLandmarks: true,
+				minDetectionConfidence: 0.5,
+				minTrackingConfidence: 0.5
+			});
+			faceMesh.onResults(onResults);
+
+			const input_camera = new Camera(videoElement, {
+				onFrame: async () => {
+					await faceMesh.send({image: videoElement});
+				},
+				width: 720,
+				height: 720
+			});
+			input_camera.start();
+
+			const container = document.getElementById( 'container' );
+
+			const renderer = window.renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			renderer.outputEncoding = THREE.sRGBEncoding;
+			container.appendChild( renderer.domElement );
+
+			renderer.physicallyCorrectLights = true;
+			renderer.setClearColor( 0xcccccc );
+
+			const pmremGenerator = new THREE.PMREMGenerator( renderer );
+
+			const scene = new THREE.Scene();
+			scene.background = new THREE.Color( 0xbfe3dd );
+			scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.04 ).texture;
+
+			const camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 100 );
+			camera.position.set( 1, 1, 3 );
+
+			const controls = new OrbitControls( camera, renderer.domElement );
+			controls.target.set( 0, 0.5, 0 );
+			controls.update();
+			controls.enablePan = true;
+			controls.enableDamping = true;
+
+			const dracoLoader = new DRACOLoader();
+			dracoLoader.setDecoderPath( 'libs/draco/gltf/' );
+
+			const loader = new GLTFLoader();
+			loader.setDRACOLoader( dracoLoader );
+			let skinNode = null
+			loader.load( '/model2.glb', function ( gltf ) {
+
+				const model = gltf.scene;
+				model.position.set( 0, -2.2, 0 );
+				model.scale.set( 2, 2, 2 );
+				scene.add( model );
+				const morphMeshes = [];
+				scene.traverse((node) => {
+					if (node.isMesh && node.morphTargetInfluences) {
+						skinNode = node
+						console.log(node.morphTargetDictionary);
+					}
+				});
+
+				renderer.render( scene, camera );
+
+			}, undefined, function ( e ) {
+
+				console.error( e );
+
+			} );
+
+			window.onresize = function () {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			};
+		</script>
+
+	</body>
+
+</html>
